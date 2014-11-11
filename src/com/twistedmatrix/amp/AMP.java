@@ -33,7 +33,7 @@ public class AMP extends AMPParser {
         }
     }
 
-    HashMap<String, CommandResult> pendingCommands;
+    HashMap<String, CommandResult> pendingCommands = new HashMap<String, CommandResult>();
 
     /**
      * Annotation interface for exposing commands.

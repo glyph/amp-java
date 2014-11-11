@@ -1,4 +1,3 @@
-
 package com.twistedmatrix.internet;
 
 import java.util.ArrayList;
@@ -48,6 +47,7 @@ public class Reactor {
 
     public interface IListeningPort {
         void stopListening();
+        void startListening() throws ClosedChannelException;
     }
 
     /* It appears that this interface is actually unnamed in
@@ -124,7 +124,7 @@ public class Reactor {
 
         boolean disconnecting;
 
-        TCPConnection(IProtocol protocol, SocketChannel channel, Socket socket) throws Throwable {
+        TCPConnection(IProtocol protocol, SocketChannel channel, Socket socket, boolean client) throws Throwable {
             inbuf = ByteBuffer.allocate(BUFFER_SIZE);
             inbuf.clear();
             outbufs = new ArrayList<byte[]>();
@@ -132,7 +132,12 @@ public class Reactor {
             this.channel = channel;
             this.socket = socket;
             this.disconnecting = false;
-            this.sk = channel.register(selector, SelectionKey.OP_READ, this);
+
+	    if (client)
+	      this.sk = channel.register(selector, SelectionKey.OP_CONNECT, this);
+	    else
+	      this.sk = channel.register(selector, SelectionKey.OP_READ, this);
+
             interestOpsChanged();
             this.protocol.makeConnection(this);
         }
@@ -156,6 +161,11 @@ public class Reactor {
         void stopWriting () {
             sk.interestOps(sk.interestOps() & ~SelectionKey.OP_WRITE);
             interestOpsChanged();
+        }
+
+        public void doConnect() throws Throwable {
+	    this.channel.finishConnect();
+	    this.startReading();
         }
 
         void doRead() throws Throwable {
@@ -219,7 +229,7 @@ public class Reactor {
     class TCPServer extends TCPConnection {
         // is there really any need for this to be a separate class?
         public TCPServer(IProtocol a, SocketChannel b, Socket c) throws Throwable {
-            super(a, b, c);
+	     super(a, b, c, false);
         }
     }
 
@@ -327,7 +337,7 @@ public class Reactor {
     }
 
     public IListeningPort listenTCP(int portno,
-                                    IProtocol.IFactory factory)
+				     IProtocol.IFactory factory)
         throws IOException {
         return new TCPPort(portno, factory);
     }
@@ -345,6 +355,69 @@ public class Reactor {
             msg(System.currentTimeMillis() + " " + this.x);
         }
     }
+
+  public interface IConnector {
+    void stopConnecting();
+    void disconnect();
+    void connect() throws Throwable;
+  }
+
+  public class TCPClient extends TCPConnection {
+    public TCPClient(IProtocol a, SocketChannel b, Socket c) throws Throwable {
+      super(a, b, c, true);
+    }
+  }
+
+  public class TCPConnect extends Selectable implements IConnector {
+    IProtocol.IFactory protocolFactory;
+    SocketChannel sc;
+    Socket s;
+    InetSocketAddress addr;
+
+    TCPConnect(String addr,int portno,IProtocol.IFactory pf) throws Throwable {
+      this.protocolFactory = pf;
+      this.sc = SocketChannel.open();
+      this.sc.configureBlocking(false);
+      this.s = this.sc.socket();
+      this.addr = new InetSocketAddress(addr, portno);
+      this.connect();
+    }
+
+    public void connect() throws Throwable {
+      this.sc.connect(this.addr);
+      interestOpsChanged();
+
+      IProtocol p = this.protocolFactory.buildProtocol(this.addr);
+      new TCPClient(p, this.sc, this.s);
+    }
+
+    public void disconnect() {
+      this.sk.cancel();
+      try {
+	this.sc.close();
+      } catch (IOException e) {
+	System.out.println(e);
+      }
+      interestOpsChanged();
+    }
+
+    public void stopConnecting() {
+      this.sk.cancel();
+      try {
+	this.sc.close();
+      } catch (IOException e) {
+	System.out.println(e);
+      }
+      interestOpsChanged();
+    }
+
+  }
+
+  public IConnector connectTCP(String addr, int portno,
+			       IProtocol.IFactory factory)
+    throws Throwable {
+    return new TCPConnect(addr, portno, factory);
+  }
 
     public static void main (String[] args) throws Throwable {
         // The most basic server possible.
@@ -368,3 +441,4 @@ public class Reactor {
         r.run();
     }
 }
+

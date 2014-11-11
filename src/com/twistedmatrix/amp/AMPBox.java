@@ -279,6 +279,7 @@ public class AMPBox implements Map<byte[], byte[]> {
                 putAndEncode(f.getName(), f.get(o));
             }
         } catch (IllegalAccessException iae) {
+	  iae.printStackTrace();
             /*
               This should be basically impossible to get; getFields should
               only give us public fields.
