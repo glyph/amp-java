@@ -13,6 +13,8 @@ public class Deferred {
             this.t = throwable;
         }
 
+        public Throwable get() { return this.t; }
+
         public Class trap(Class c) throws Throwable {
             if (c.isInstance(this.t)) {
                 return c;

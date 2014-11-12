@@ -23,6 +23,23 @@ import java.lang.reflect.Field;
  */
 
 public class AMPBox implements Map<byte[], byte[]> {
+
+  public class ErrorPrototype {
+    private String _code;
+    private String _description;
+
+    public ErrorPrototype (String code, String description) {
+      _code = code;
+      _description = description;
+    }
+
+    public String getCode() { return _code; }
+    public String getDescription() { return _description; }
+    public Exception getException() {
+      return new Exception(_code + " " + _description);
+    }
+  }
+
     private class Pair implements Map.Entry<byte[], byte[]> {
         Pair(byte[] k, byte[] v) {
             this.key = k;
@@ -222,11 +239,20 @@ public class AMPBox implements Map<byte[], byte[]> {
                 }
             }
         } catch (IllegalAccessException iae) {
+	  iae.printStackTrace();
             /*
               This should be basically impossible to get; getFields should
               only give us public fields.
              */
         }
+    }
+
+    public ErrorPrototype fillError() {
+      String code = (String) getAndDecode("_error_code", String.class);
+      String description = (String) getAndDecode("_error_description",
+						 String.class);
+
+      return new ErrorPrototype(code, description);
     }
 
     public Object getAndDecode(String key, Class t) {

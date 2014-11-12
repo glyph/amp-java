@@ -113,9 +113,8 @@ public class AMP extends AMPParser {
             cr.deferred.callback(cr.protoResult);
         } else if ("_error".equals(msgtype)) {
             CommandResult cr = this.pendingCommands.get(cmdprop);
-            // box.fillOut(cr.protoResult);
-            cr.deferred.errback(
-                new Deferred.Failure(new Exception("vague, undefined exception")));
+            AMPBox.ErrorPrototype error = box.fillError();
+            cr.deferred.errback(new Deferred.Failure(error.getException()));
         } else if ("_command".equals(msgtype)) {
             for (Method m : this.getClass().getMethods()) {
                 AMP.Command c = (AMP.Command) m.getAnnotation(AMP.Command.class);
