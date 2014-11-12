@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<project name="amp-hacks" default="build" basedir=".">
+<project name="amp-java" default="build" basedir=".">
 
   <!-- Set some defaults -->
   <property name="doc.dir" value="${user.home}/javadoc" />
@@ -74,16 +74,14 @@
   
   <!-- Package up the compiled classes into a jar file -->
   <target name="jar" depends="buildprod" description="Creates jar file">
-    <delete file="${basedir}/amp-hacks.jar" failonerror="false" />
-    <jar destfile="amp-hacks.jar" basedir="${tmp.dir}" />
+    <delete file="${basedir}/amp-java.jar" failonerror="false" />
+    <jar destfile="amp-java.jar" basedir="${tmp.dir}" />
   </target>
 
   <!-- Generate documentation -->
   <target name="javadoc" description="Generate documentation">
     <mkdir dir="${doc.dir}"/>
-    <javadoc destdir="${doc.dir}" 
-	     excludepackagenames="com.twistedmatrix.amp.TestAMP"
-	     version="true" windowtitle="AMP Hacks">
+    <javadoc destdir="${doc.dir}" version="true" windowtitle="AMP Java">
       <classpath refid="project.class.path"/>
       <link href="http://docs.oracle.com/javase/8/docs/api/"/>
       <fileset dir="src" defaultexcludes="yes">
@@ -99,7 +97,7 @@
   <target name="clean" description="Cleans this project">
     <delete dir="${doc.dir}" failonerror="false" />
     <delete dir="${tmp.dir}" failonerror="false" />
-    <delete file="${basedir}/amp-hacks.jar" failonerror="false" />
+    <delete file="${basedir}/amp-java.jar" failonerror="false" />
   </target>
 
 </project>
