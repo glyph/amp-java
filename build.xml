@@ -26,7 +26,7 @@
   </target>
 
   <!-- Run junit tests -->
-  <target name="test" depends="build">
+  <target name="test" depends="build" description="Run junit tests">
     <java
        classname="junit.textui.TestRunner"
        taskname="junit"
@@ -39,7 +39,7 @@
   </target>
 
   <!-- Run example code in AMP.java -->
-  <target name="runamp" depends="build" description="Runs compiled bytecode">
+  <target name="runamp" depends="build" description="Runs compiled AMP">
    <java failonerror="true" fork="true"
 	 classname="com.twistedmatrix.amp.AMP">
       <classpath>
@@ -50,7 +50,7 @@
   </target>
 
   <!-- Run example code in Reactor.java -->
-  <target name="runreact" depends="build" description="Runs compiled bytecode">
+  <target name="runreact" depends="build" description="Runs compiled Reactor">
    <java failonerror="true" fork="true"
 	 classname="com.twistedmatrix.internet.Reactor">
       <classpath>
@@ -79,7 +79,7 @@
   </target>
 
   <!-- Generate documentation -->
-  <target name="javadoc">
+  <target name="javadoc" description="Generate documentation">
     <mkdir dir="${doc.dir}"/>
     <javadoc destdir="${doc.dir}" 
 	     excludepackagenames="com.twistedmatrix.amp.TestAMP"
