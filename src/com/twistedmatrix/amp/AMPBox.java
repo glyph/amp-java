@@ -35,8 +35,8 @@ public class AMPBox implements Map<byte[], byte[]> {
 
     public String getCode() { return _code; }
     public String getDescription() { return _description; }
-    public Exception getException() {
-      return new Exception(_code + " " + _description);
+    public Throwable getThrowable() {
+      return new Throwable(_code + " " + _description);
     }
   }
 

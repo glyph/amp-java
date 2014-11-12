@@ -114,7 +114,7 @@ public class AMP extends AMPParser {
         } else if ("_error".equals(msgtype)) {
             CommandResult cr = this.pendingCommands.get(cmdprop);
             AMPBox.ErrorPrototype error = box.fillError();
-            cr.deferred.errback(new Deferred.Failure(error.getException()));
+            cr.deferred.errback(new Deferred.Failure(error.getThrowable()));
         } else if ("_command".equals(msgtype)) {
             for (Method m : this.getClass().getMethods()) {
                 AMP.Command c = (AMP.Command) m.getAnnotation(AMP.Command.class);
