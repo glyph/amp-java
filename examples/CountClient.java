@@ -50,7 +50,7 @@ public class CountClient extends AMP {
     }
     
     public void connectionLost(Throwable reason) {
-	System.out.println("connection lost:" + reason);
+	System.out.println("connection lost 1:" + reason);
     }
     
     class CountHandler implements Deferred.Callback {
@@ -98,16 +98,17 @@ public class CountClient extends AMP {
 		}
 
 		public void startedConnecting(IConnector connector) {
-		    System.out.println("started connecting");
+		    System.out.println("connecting");
 		}
 
 		public void clientConnectionFailed(IConnector connector, 
 						   Throwable reason) {
 		    System.out.println("connectiion failed:" + reason);
+		    System.exit(0);
 		}
 		public void clientConnectionLost(IConnector connector, 
 						 Throwable reason) {
-		    System.out.println("connection lost:" + reason);
+		    System.out.println("connection lost 2:" + reason);
 		}
 
 	    });

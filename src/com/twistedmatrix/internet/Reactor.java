@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.ConnectException;
 
 import java.nio.ByteBuffer;
 
@@ -40,15 +41,16 @@ public class Reactor {
     private class Selectable {
         private SelectionKey sk;
 
+	public boolean isConnecting() {
+            msg("UNHANDLED ISCONNECTING "+this);
+	    return false;
+	}
         public void doRead() throws Throwable {
             msg("UNHANDLED READ "+this);
         }
         public void doWrite() throws Throwable {
             msg("UNHANDLED WRITE "+this);
         }
-
-        // and we don't need this, because there's no such thing as
-        // "acceptable" outside the magical fantasyland where Java lives.
         public void doAccept() throws Throwable {
             msg("UNHANDLED ACCEPT "+this);
         }
@@ -95,7 +97,7 @@ public class Reactor {
             Socket socket = newsc.socket();
 
             IProtocol p = this.protocolFactory.buildProtocol(this.addr);
-            new TCPConnection(p, newsc, socket, false);
+            new TCPConnection(p, newsc, socket, null);
         }
     }
 
@@ -125,7 +127,7 @@ public class Reactor {
 	    interestOpsChanged();
 	    
 	    p = this.clientFactory.buildProtocol(this.addr);
-	    new TCPConnection(p, this.sc, this.s, true);
+	    new TCPConnection(p, this.sc, this.s, this);
 	}
 	
 	public void disconnect() {
@@ -149,6 +151,10 @@ public class Reactor {
 	    interestOpsChanged();
 	}
 	
+        public void connectionFailed(Throwable reason) {
+	    this.clientFactory.clientConnectionFailed(this, reason);
+        }
+
         public void loseConnection(String reason) {
 	    this.p.connectionLost(new Throwable(reason));
 	    this.clientFactory.clientConnectionLost(this,new Throwable(reason));
@@ -163,23 +169,27 @@ public class Reactor {
         SocketChannel channel;
         Socket socket;
         SelectionKey sk;
-	
+	TCPConnect client;
         boolean disconnecting;
 	
         TCPConnection(IProtocol protocol, SocketChannel channel, Socket socket,
-		      boolean client) throws Throwable {
+		      TCPConnect client) throws Throwable {
             inbuf = ByteBuffer.allocate(BUFFER_SIZE);
             inbuf.clear();
             outbufs = new ArrayList<byte[]>();
+	    this.client = client;
             this.protocol = protocol;
             this.channel = channel;
             this.socket = socket;
             this.disconnecting = false;
 
-	    if (client)
-	      this.sk = channel.register(selector, SelectionKey.OP_CONNECT, this);
+	    if (client == null)
+		this.sk = channel.register(selector, SelectionKey.OP_ACCEPT, 
+					   this);
 	    else
-		this.sk = channel.register(selector, SelectionKey.OP_ACCEPT, this);
+		this.sk = channel.register(selector, SelectionKey.OP_CONNECT,
+					   this);
+
 	    //this.sk = channel.register(selector, SelectionKey.OP_READ, this);
 
             interestOpsChanged();
@@ -208,11 +218,13 @@ public class Reactor {
         }
 
         public void doConnect() throws Throwable {
-	    this.channel.finishConnect();
-	    this.startReading();
-
-	    System.out.println("  ** HOWDY: " + channel.isConnected());
-
+	    try {
+		this.channel.finishConnect();
+		this.startReading();
+	    } catch (ConnectException e) {
+		this.client.connectionFailed(e);
+		loseConnection();
+	    }
         }
 
         public void doRead() throws Throwable {
@@ -260,7 +272,7 @@ public class Reactor {
                 if (this.disconnecting) {
                     this.channel.close();
 		    this.protocol.connectionLost(new Throwable("Disconnected"));
-               }
+		}
                 // else wtf?
             } else {
                 this.channel.write(ByteBuffer.wrap(this.outbufs.remove(0)));
@@ -269,6 +281,10 @@ public class Reactor {
                 }
             }
         }
+
+	public boolean isConnecting() {
+	    return channel.isConnectionPending();
+	}
 
         public void loseConnection() {
             this.disconnecting = true;
@@ -311,18 +327,21 @@ public class Reactor {
             this.selector.selectedKeys().iterator();
         while (selectedKeys.hasNext()) {
             SelectionKey sk = selectedKeys.next();
-            selectedKeys.remove();
             Selectable selectable = ((Selectable) sk.attachment());
-            if (sk.isValid() && sk.isWritable()) {
+            if (sk.isValid() && sk.isWritable() && !selectable.isConnecting()) {
+		selectedKeys.remove();
                 selectable.doWrite();
             }
-            if (sk.isValid() && sk.isReadable()) {
+            if (sk.isValid() && sk.isReadable() && !selectable.isConnecting()) {
+		selectedKeys.remove();
                 selectable.doRead();
             }
             if (sk.isValid() && sk.isAcceptable()) {
+		selectedKeys.remove();
                 selectable.doAccept();
             }
             if (sk.isValid() && sk.isConnectable()) {
+		selectedKeys.remove();
                 selectable.doConnect();
             }
         }
