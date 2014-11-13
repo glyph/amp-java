@@ -56,6 +56,11 @@ public class AMP extends AMPParser {
 
     /**
      * Send a remote command.
+     *
+     *  name: name of the remote command,
+     *  args: class containing values to send, 
+     *  result: class defining response variables, any data is ignored
+     *
      */
     public Deferred callRemote(String name, Object args, Object result) {
         AMPBox box = new AMPBox();

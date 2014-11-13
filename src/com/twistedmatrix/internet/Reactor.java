@@ -22,7 +22,7 @@ import java.nio.channels.SelectionKey;
 public class Reactor {
     private static int                    BUFFER_SIZE  = 8 * 1024;
     
-    private        List<IProtocol>        _clients;
+    private        List<TCPConnect>       _clients;
     private        Selector               selector;
     private        boolean                running;
     private        TreeMap<Long,Runnable> pendingCalls;
@@ -31,34 +31,34 @@ public class Reactor {
         this.selector = Selector.open();
         this.running = false;
         this.pendingCalls = new TreeMap<Long,Runnable>();
-	this._clients = new ArrayList<IProtocol>();
+	this._clients = new ArrayList<TCPConnect>();
     }
     
     /* It appears that this interface is actually unnamed in
      * Twisted... abstract.FileDescriptor serves this purpose.
      */
     private class Selectable {
-        SelectionKey sk;
+        private SelectionKey sk;
 
-        void doRead() throws Throwable {
+        public void doRead() throws Throwable {
             msg("UNHANDLED READ "+this);
         }
-        void doWrite() throws Throwable {
+        public void doWrite() throws Throwable {
             msg("UNHANDLED WRITE "+this);
         }
 
         // and we don't need this, because there's no such thing as
         // "acceptable" outside the magical fantasyland where Java lives.
-        void doAccept() throws Throwable {
+        public void doAccept() throws Throwable {
             msg("UNHANDLED ACCEPT "+this);
         }
-        void doConnect() throws Throwable {
+        public void doConnect() throws Throwable {
             msg("UNHANDLED CONNECT "+this);
         }
     }
 
     /** Implements the bulk of the tcp server support */
-    private class TCPPort extends Selectable implements IListeningPort {
+    private class TCPPort implements IListeningPort {
         IFactory protocolFactory;
         ServerSocketChannel ssc;
         ServerSocket ss;
@@ -77,13 +77,12 @@ public class Reactor {
 	public InetSocketAddress getHost() { return this.addr; }
 
         public void startListening() throws ClosedChannelException {
-            this.sk = ssc.register(selector, SelectionKey.OP_ACCEPT, this);
+
             interestOpsChanged();
         }
 
         public void stopListening() {
-            /// ???
-            this.sk.cancel();
+            //this.sk.cancel();
             interestOpsChanged();
         }
 
@@ -101,15 +100,15 @@ public class Reactor {
     }
 
     /** Implements the bulk of the tcp client support */
-    private class TCPConnect extends Selectable implements IConnector {
-	IFactory protocolFactory;
-	SocketChannel sc;
-	Socket s;
-	IProtocol p;
-	InetSocketAddress addr;
+    private class TCPConnect implements IConnector {
+	private IClientFactory clientFactory;
+	private SocketChannel sc;
+	private Socket s;
+	private IProtocol p;
+	private InetSocketAddress addr;
 	
-	TCPConnect(String addr, int portno, IFactory pf) throws Throwable {
-	    this.protocolFactory = pf;
+	TCPConnect(String addr,int portno,IClientFactory cf) throws Throwable {
+	    this.clientFactory = cf;
 	    this.sc = SocketChannel.open();
 	    this.sc.configureBlocking(false);
 	    this.s = this.sc.socket();
@@ -120,19 +119,20 @@ public class Reactor {
 	public InetSocketAddress getDestination() { return this.addr; }
 	
 	public void connect() throws Throwable {
+	    _clients.add(this);
+	    this.clientFactory.startedConnecting(this);
 	    this.sc.connect(this.addr);
 	    interestOpsChanged();
 	    
-	    p = this.protocolFactory.buildProtocol(this.addr);
-	    _clients.add(p);
+	    p = this.clientFactory.buildProtocol(this.addr);
 	    new TCPConnection(p, this.sc, this.s, true);
 	}
 	
 	public void disconnect() {
-	    this.sk.cancel();
+	    //this.sk.cancel();
 	    try {
 		this.sc.close();
-		this.p.connectionLost(new Throwable("Disconnected"));
+		loseConnection("Disconnected");
 	    } catch (IOException e) {
 		System.out.println(e);
 	    }
@@ -140,7 +140,7 @@ public class Reactor {
 	}
 	
 	public void stopConnecting() {
-	    this.sk.cancel();
+	    //this.sk.cancel();
 	    try {
 		this.sc.close();
 	    } catch (IOException e) {
@@ -149,6 +149,10 @@ public class Reactor {
 	    interestOpsChanged();
 	}
 	
+        public void loseConnection(String reason) {
+	    this.p.connectionLost(new Throwable(reason));
+	    this.clientFactory.clientConnectionLost(this,new Throwable(reason));
+        }
     }
     
     private class TCPConnection extends Selectable implements ITransport {
@@ -175,29 +179,30 @@ public class Reactor {
 	    if (client)
 	      this.sk = channel.register(selector, SelectionKey.OP_CONNECT, this);
 	    else
-	      this.sk = channel.register(selector, SelectionKey.OP_READ, this);
+		this.sk = channel.register(selector, SelectionKey.OP_ACCEPT, this);
+	    //this.sk = channel.register(selector, SelectionKey.OP_READ, this);
 
             interestOpsChanged();
             this.protocol.makeConnection(this);
         }
 
         // HAHAHAHA the fab four strike again
-        void startReading() {
+        public void startReading() {
             sk.interestOps(sk.interestOps() | SelectionKey.OP_READ);
             interestOpsChanged();
         }
 
-        void startWriting () {
+        public void startWriting () {
             sk.interestOps(sk.interestOps() | SelectionKey.OP_WRITE);
             interestOpsChanged();
         }
 
-        void stopReading () {
+        public void stopReading () {
             sk.interestOps(sk.interestOps() & ~SelectionKey.OP_READ);
             interestOpsChanged();
         }
 
-        void stopWriting () {
+        public void stopWriting () {
             sk.interestOps(sk.interestOps() & ~SelectionKey.OP_WRITE);
             interestOpsChanged();
         }
@@ -205,9 +210,12 @@ public class Reactor {
         public void doConnect() throws Throwable {
 	    this.channel.finishConnect();
 	    this.startReading();
+
+	    System.out.println("  ** HOWDY: " + channel.isConnected());
+
         }
 
-        void doRead() throws Throwable {
+        public void doRead() throws Throwable {
             boolean failed = false;
             Throwable reason = null;
             try {
@@ -244,7 +252,7 @@ public class Reactor {
             this.startWriting();
         }
 
-        void doWrite() throws Throwable {
+        public void doWrite() throws Throwable {
             /* XXX TODO: this cannot possibly be correct, but every example
              * and every tutorial does this!  Insane.
              */
@@ -370,8 +378,7 @@ public class Reactor {
             }
             this.doIteration();
         }
-	for (IProtocol connect: _clients) 
-	    connect.connectionLost(new Throwable("Shutdown"));
+	for (TCPConnect client: _clients) client.loseConnection("Shutdown");
     }
     
     public void stop() {
@@ -384,7 +391,7 @@ public class Reactor {
     }
 
     public IConnector connectTCP(String addr, int portno,
-				 IFactory factory) throws Throwable {
+				 IClientFactory factory) throws Throwable {
 	return new TCPConnect(addr, portno, factory);
     }
  

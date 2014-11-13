@@ -41,6 +41,14 @@ public class Deferred {
         }
     }
 
+    /** A deferred callback is how most asynchronous events are handled.
+     *  Callbacks generally return null unless you want to chanin them,
+     *  in which the result of one callback is passed to the next. When
+     *  adding an errBack, a Deferred.Failure is passed should something
+     *  goes awry. A callback from AMP.callRemote is passed the response.
+     */
+
+
     public interface Callback {
         Object callback(Object o) throws Exception;
     }

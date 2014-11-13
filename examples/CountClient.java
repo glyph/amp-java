@@ -39,19 +39,11 @@ public class CountClient extends AMP {
     }
     
     public void connectionMade() {
+	System.out.println("connected");
+
 	CountArgs ca = new CountArgs(1);
 	CountResp cr = new CountResp(true);
 
-	/*
-	  callRemote: command -> name of the remote command,
-	      args class -> class containing values to pass, 
-	      resp proto -> class defining response variables, data ignored
-	  callBack:   initially passed a populated response class
-	      return object is handed to next callback, if any
-	  errBack:    initially passed a Deferred.Failure
-	      return object is handed to next errback, if any
-	*/
-    
 	Deferred dfd = callRemote("Count", ca, cr);
 	dfd.addCallback(new CountHandler());
 	dfd.addErrback(new ErrHandler());
@@ -100,30 +92,26 @@ public class CountClient extends AMP {
     
     public static void main(String[] args) throws Throwable {
 	Reactor reactor = Reactor.get();
-	reactor.connectTCP("127.0.0.1", 7113, new IFactory() {
+	reactor.connectTCP("127.0.0.1", 7113, new IClientFactory() {
 		public IProtocol buildProtocol(Object addr) {
 		    return new CountClient(reactor);
 		}
+
+		public void startedConnecting(IConnector connector) {
+		    System.out.println("started connecting");
+		}
+
+		public void clientConnectionFailed(IConnector connector, 
+						   Throwable reason) {
+		    System.out.println("connectiion failed:" + reason);
+		}
+		public void clientConnectionLost(IConnector connector, 
+						 Throwable reason) {
+		    System.out.println("connection lost:" + reason);
+		}
+
 	    });
-	// Need to be able to add errback here
-	
 	
 	reactor.run();
     }
 }
-
-/*
-  for (int i = 0; i < data.length; i++) {
-  System.out.println("HOWDY Got: " + Character.toString((char) data[i])); 
-  }
-
-    public class CountResp { // Return values, class/vars must be public
-	public int n = 0;
-	public boolean ok = true;
-	
-	public CountResp(boolean b) { ok = b; }
-	public int     getVal() { return n; }
-	public boolean getStatus() { return ok; }
-    }
-    
-*/
