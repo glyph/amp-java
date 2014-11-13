@@ -21,7 +21,6 @@ import java.nio.channels.SelectionKey;
 
 public class Reactor {
     private static int                    BUFFER_SIZE  = 8 * 1024;
-    private static Reactor                theReactor;
     
     private        List<IProtocol>        _clients;
     private        Selector               selector;
@@ -33,17 +32,6 @@ public class Reactor {
         this.running = false;
         this.pendingCalls = new TreeMap<Long,Runnable>();
 	this._clients = new ArrayList<IProtocol>();
-    }
-    
-    public static Reactor get() {
-        if (theReactor == null) {
-            try {
-                theReactor = new Reactor();
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
-            }
-        }
-        return theReactor;
     }
     
     /* It appears that this interface is actually unnamed in
@@ -340,6 +328,16 @@ public class Reactor {
         return runUntilCurrent(now);
     }
 
+    public static Reactor get() {
+	Reactor theReactor = null;
+	try {
+	    theReactor = new Reactor();
+	} catch (IOException ioe) {
+	    ioe.printStackTrace();
+	}
+        return theReactor;
+    }
+    
     /**
      * Override this method in subclasses to run "iterate" in a different
      * context, i.e. in a thread.
