@@ -1,5 +1,6 @@
 package com.twistedmatrix.internet;
 
+import java.util.List;
 import java.util.ArrayList;
 import java.util.TreeMap;
 import java.util.Iterator;
@@ -19,10 +20,21 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.SelectionKey;
 
 public class Reactor {
+    private static int                    BUFFER_SIZE  = 8 * 1024;
+    private        List<IProtocol>        _clients;
 
-    static int BUFFER_SIZE = 8 * 1024;
+    private        Selector               selector;
+    private        boolean                running;
+    private        TreeMap<Long,Runnable> pendingCalls;
 
-    public static Reactor get() {
+    public Reactor () throws Throwable {
+        this.selector = Selector.open();
+        this.running = false;
+        this.pendingCalls = new TreeMap<Long,Runnable>();
+	this._clients = new ArrayList<IProtocol>();
+    }
+
+   public static Reactor get() {
         if (theReactor == null) {
             try {
                 theReactor = new Reactor();
@@ -212,7 +224,8 @@ public class Reactor {
             if (0 == this.outbufs.size()) {
                 if (this.disconnecting) {
                     this.channel.close();
-                }
+		    this.protocol.connectionLost(new Throwable("Disconnected"));
+               }
                 // else wtf?
             } else {
                 this.channel.write(ByteBuffer.wrap(this.outbufs.remove(0)));
@@ -231,16 +244,6 @@ public class Reactor {
         public TCPServer(IProtocol a, SocketChannel b, Socket c) throws Throwable {
 	     super(a, b, c, false);
         }
-    }
-
-    Selector selector;
-    boolean running;
-    TreeMap<Long,Runnable> pendingCalls;
-
-    Reactor () throws Throwable {
-        this.selector = Selector.open();
-        this.running = false;
-        this.pendingCalls = new TreeMap<Long,Runnable>();
     }
 
     public interface IDelayedCall {
@@ -316,13 +319,13 @@ public class Reactor {
     void doIteration() throws Throwable {
         iterate();
     }
-
+    
     public void run() throws Throwable {
         running = true;
         while (running) {
             int selected;
             long timeout = processTimedEvents();
-
+	    
             if (timeout >= 0) {
                 this.selector.select(timeout);
             } else {
@@ -330,22 +333,24 @@ public class Reactor {
             }
             this.doIteration();
         }
+	for (IProtocol connect: _clients) 
+	    connect.connectionLost(new Throwable("Shutdown"));
     }
-
+    
     public void stop() {
         this.running = false;
     }
-
+    
     public IListeningPort listenTCP(int portno,
-				     IProtocol.IFactory factory)
+				    IProtocol.IFactory factory)
         throws IOException {
         return new TCPPort(portno, factory);
     }
-
+    
     public static void msg (String m) {
         System.out.println(m);
     }
-
+    
     static class ShowMessage implements Runnable {
         String x;
         ShowMessage(String s) {
@@ -355,74 +360,79 @@ public class Reactor {
             msg(System.currentTimeMillis() + " " + this.x);
         }
     }
-
-  public interface IConnector {
-    void stopConnecting();
-    void disconnect();
-    void connect() throws Throwable;
-  }
-
-  public class TCPClient extends TCPConnection {
-    public TCPClient(IProtocol a, SocketChannel b, Socket c) throws Throwable {
-      super(a, b, c, true);
+    
+    public interface IConnector {
+	void stopConnecting();
+	void disconnect();
+	void connect() throws Throwable;
     }
-  }
-
-  public class TCPConnect extends Selectable implements IConnector {
-    IProtocol.IFactory protocolFactory;
-    SocketChannel sc;
-    Socket s;
-    InetSocketAddress addr;
-
-    TCPConnect(String addr,int portno,IProtocol.IFactory pf) throws Throwable {
-      this.protocolFactory = pf;
-      this.sc = SocketChannel.open();
-      this.sc.configureBlocking(false);
-      this.s = this.sc.socket();
-      this.addr = new InetSocketAddress(addr, portno);
-      this.connect();
+    
+    public class TCPClient extends TCPConnection {
+	public TCPClient(IProtocol a, SocketChannel b, 
+			 Socket c) throws Throwable {
+	    super(a, b, c, true);
+	}
     }
-
-    public void connect() throws Throwable {
-      this.sc.connect(this.addr);
-      interestOpsChanged();
-
-      IProtocol p = this.protocolFactory.buildProtocol(this.addr);
-      new TCPClient(p, this.sc, this.s);
+    
+    public class TCPConnect extends Selectable implements IConnector {
+	IProtocol.IFactory protocolFactory;
+	SocketChannel sc;
+	Socket s;
+	IProtocol p;
+	InetSocketAddress addr;
+	
+	TCPConnect(String addr, int portno,
+		   IProtocol.IFactory pf) throws Throwable {
+	    this.protocolFactory = pf;
+	    this.sc = SocketChannel.open();
+	    this.sc.configureBlocking(false);
+	    this.s = this.sc.socket();
+	    this.addr = new InetSocketAddress(addr, portno);
+	    this.connect();
+	}
+	
+	public void connect() throws Throwable {
+	    this.sc.connect(this.addr);
+	    interestOpsChanged();
+	    
+	    p = this.protocolFactory.buildProtocol(this.addr);
+	    _clients.add(p);
+	    new TCPClient(p, this.sc, this.s);
+	}
+	
+	public void disconnect() {
+	    this.sk.cancel();
+	    try {
+		this.sc.close();
+		this.p.connectionLost(new Throwable("Disconnected"));
+	    } catch (IOException e) {
+		System.out.println(e);
+	    }
+	    interestOpsChanged();
+	}
+	
+	public void stopConnecting() {
+	    this.sk.cancel();
+	    try {
+		this.sc.close();
+	    } catch (IOException e) {
+		System.out.println(e);
+	    }
+	    interestOpsChanged();
+	}
+	
     }
-
-    public void disconnect() {
-      this.sk.cancel();
-      try {
-	this.sc.close();
-      } catch (IOException e) {
-	System.out.println(e);
-      }
-      interestOpsChanged();
+    
+    public IConnector connectTCP(String addr, int portno,
+				 IProtocol.IFactory factory)
+	throws Throwable {
+	return new TCPConnect(addr, portno, factory);
     }
-
-    public void stopConnecting() {
-      this.sk.cancel();
-      try {
-	this.sc.close();
-      } catch (IOException e) {
-	System.out.println(e);
-      }
-      interestOpsChanged();
-    }
-
-  }
-
-  public IConnector connectTCP(String addr, int portno,
-			       IProtocol.IFactory factory)
-    throws Throwable {
-    return new TCPConnect(addr, portno, factory);
-  }
-
+    
     public static void main (String[] args) throws Throwable {
         // The most basic server possible.
         Reactor r = Reactor.get();
-
+	
         r.callLater(1, new ShowMessage("one!"));
         r.callLater(3, new ShowMessage("three!"));
         r.callLater(2, new ShowMessage("two!"));

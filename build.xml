@@ -14,8 +14,7 @@
     <mkdir dir="${tmp.dir}"/>
     <javac srcdir="src" includes="**" encoding="utf-8"
         destdir="${tmp.dir}" nowarn="true"
-	includeantruntime="false"
-        debug="true" debuglevel="lines,vars,source">
+	includeantruntime="false" debug="true" debuglevel="lines,vars,source">
       <classpath refid="project.class.path"/>
       <compilerarg value="-Xlint:unchecked"/>
       <compilerarg value="-Xlint:deprecation"/>
@@ -60,6 +59,29 @@
     </java>
   </target>
 
+  <!-- Compile the example source code without debugging information -->
+  <target name="buildexamples" depends="build" description="Compiles bytecode for examples">
+    <mkdir dir="${tmp.dir}"/>
+    <javac srcdir="examples" includes="**" encoding="utf-8"
+        destdir="${tmp.dir}" nowarn="true"
+	includeantruntime="false" debug="true" debuglevel="lines,vars,source">
+      <classpath refid="project.class.path"/>
+      <compilerarg value="-Xlint:unchecked"/>
+      <compilerarg value="-Xlint:deprecation"/>
+    </javac>
+  </target>
+
+  <!-- Run example client -->
+  <target name="runexclient" depends="build" description="Runs example client">
+   <java failonerror="true" fork="true"
+	 classname="CountClient">
+      <classpath>
+        <path refid="project.class.path"/>
+      </classpath>
+      <jvmarg value="-Xmx256M"/>
+    </java>
+  </target>
+
   <!-- Compile the source code without debugging information -->
   <target name="buildprod" description="Compiles bytecode without debug">
     <mkdir dir="${tmp.dir}"/>
@@ -97,6 +119,7 @@
   <target name="clean" description="Cleans this project">
     <delete dir="${doc.dir}" failonerror="false" />
     <delete dir="${tmp.dir}" failonerror="false" />
+    <delete file="${basedir}/examples/twisted.pid" failonerror="false" />
     <delete file="${basedir}/amp-java.jar" failonerror="false" />
   </target>
 
