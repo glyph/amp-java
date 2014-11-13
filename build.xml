@@ -120,6 +120,7 @@
     <delete dir="${doc.dir}" failonerror="false" />
     <delete dir="${tmp.dir}" failonerror="false" />
     <delete file="${basedir}/examples/twisted.pid" failonerror="false" />
+    <delete file="${basedir}/examples/count_client.pyc" failonerror="false" />
     <delete file="${basedir}/amp-java.jar" failonerror="false" />
   </target>
 
