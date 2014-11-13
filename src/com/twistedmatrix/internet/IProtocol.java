@@ -1,12 +1,8 @@
-
 package com.twistedmatrix.internet;
 
 public interface IProtocol {
-    public interface IFactory {
-        IProtocol buildProtocol(Object addr);
-    }
-
-    void makeConnection(ITransport transport);
-    void dataReceived(byte[] data);
-    void connectionLost(Throwable reason);
+    public void dataReceived(byte[] data);
+    public void connectionLost(Throwable reason);
+    public void makeConnection(ITransport transport);
+    public void connectionMade();
 }

@@ -1,6 +1,6 @@
-
 package com.twistedmatrix.internet;
 
+import java.io.IOException;
 import javax.swing.SwingUtilities;
 import com.twistedmatrix.internet.Reactor;
 
@@ -11,7 +11,7 @@ import com.twistedmatrix.internet.Reactor;
 
 public class SwingReactor extends Reactor {
 
-    SwingReactor() throws Throwable {
+    public SwingReactor() throws IOException {
         super();
     }
 
@@ -19,10 +19,10 @@ public class SwingReactor extends Reactor {
      * This will be invoked from the application thread, telling the run()
      * thread to do some stuff.
      */
-    void interestOpsChanged() {
-        selector.wakeup();
+    public void interestOpsChanged() {
+        wakeup();
     }
-
+    
     /**
      * Inject the application code into the Swing thread.
      */
@@ -30,9 +30,9 @@ public class SwingReactor extends Reactor {
         Runnable r = new Runnable () {
                 public void run() {
                     try {
-                        iterate();
+                        SwingReactor.this.doIteration();
                     } catch (Throwable t) {
-                        // I should really do something with this exception.
+                        // XXX TODO: Do something with this exception.
                         // Re-throw it or something?
                     }
                 }

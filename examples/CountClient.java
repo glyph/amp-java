@@ -100,7 +100,7 @@ public class CountClient extends AMP {
     
     public static void main(String[] args) throws Throwable {
 	Reactor reactor = Reactor.get();
-	reactor.connectTCP("127.0.0.1", 7113, new IProtocol.IFactory() {
+	reactor.connectTCP("127.0.0.1", 7113, new IFactory() {
 		public IProtocol buildProtocol(Object addr) {
 		    return new CountClient(reactor);
 		}

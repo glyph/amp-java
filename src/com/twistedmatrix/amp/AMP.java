@@ -9,11 +9,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Retention;
 
-import com.twistedmatrix.internet.Deferred;
-import com.twistedmatrix.internet.Reactor;
-import com.twistedmatrix.internet.Protocol;
-import com.twistedmatrix.internet.IProtocol;
-import com.twistedmatrix.internet.ITransport;
+import com.twistedmatrix.internet.*;
 
 /**
  * The actual asynchronous messaging protocol, with command dispatch and everything.
@@ -207,7 +203,7 @@ public class AMP extends AMPParser {
      */
     public static void main(String[] args) throws Throwable {
         Reactor r = Reactor.get();
-        r.listenTCP(1234, new IProtocol.IFactory() {
+        r.listenTCP(1234, new IFactory() {
                 public IProtocol buildProtocol(Object addr) {
                     System.out.println("User connected!!");
                     return new summer();

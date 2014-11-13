@@ -21,51 +21,35 @@ import java.nio.channels.SelectionKey;
 
 public class Reactor {
     private static int                    BUFFER_SIZE  = 8 * 1024;
+    private static Reactor                theReactor;
+    
     private        List<IProtocol>        _clients;
-
     private        Selector               selector;
     private        boolean                running;
     private        TreeMap<Long,Runnable> pendingCalls;
-
-    public Reactor () throws Throwable {
+    
+    public Reactor () throws IOException {
         this.selector = Selector.open();
         this.running = false;
         this.pendingCalls = new TreeMap<Long,Runnable>();
 	this._clients = new ArrayList<IProtocol>();
     }
-
-   public static Reactor get() {
+    
+    public static Reactor get() {
         if (theReactor == null) {
             try {
                 theReactor = new Reactor();
-            } catch (Throwable t) {
-                t.printStackTrace();
+            } catch (IOException ioe) {
+                ioe.printStackTrace();
             }
         }
         return theReactor;
     }
-
-    /**
-     * Selectors were added or removed.
-     *
-     * In the normal case, this is simply a no-op.  However, in the case where
-     * the "run()" thread is different from the application code thread, this
-     * is a hook for the reactor to "wakeup" its selector.
-     */
-    void interestOpsChanged() {
-    }
-
-    static Reactor theReactor;
-
-    public interface IListeningPort {
-        void stopListening();
-        void startListening() throws ClosedChannelException;
-    }
-
+    
     /* It appears that this interface is actually unnamed in
      * Twisted... abstract.FileDescriptor serves this purpose.
      */
-    class Selectable {
+    private class Selectable {
         SelectionKey sk;
 
         void doRead() throws Throwable {
@@ -85,13 +69,14 @@ public class Reactor {
         }
     }
 
-    public class TCPPort extends Selectable implements IListeningPort {
-        IProtocol.IFactory protocolFactory;
+    /** Implements the bulk of the tcp server support */
+    private class TCPPort extends Selectable implements IListeningPort {
+        IFactory protocolFactory;
         ServerSocketChannel ssc;
         ServerSocket ss;
         InetSocketAddress addr;
 
-        TCPPort(int portno, IProtocol.IFactory pf) throws IOException {
+        TCPPort(int portno, IFactory pf) throws IOException {
             this.protocolFactory = pf;
             this.ssc = ServerSocketChannel.open();
             this.ssc.configureBlocking(false);
@@ -100,6 +85,8 @@ public class Reactor {
             this.ss.bind(this.addr);
             this.startListening();
         }
+
+	public InetSocketAddress getHost() { return this.addr; }
 
         public void startListening() throws ClosedChannelException {
             this.sk = ssc.register(selector, SelectionKey.OP_ACCEPT, this);
@@ -121,22 +108,74 @@ public class Reactor {
             Socket socket = newsc.socket();
 
             IProtocol p = this.protocolFactory.buildProtocol(this.addr);
-            new TCPServer(p, newsc, socket);
+            new TCPConnection(p, newsc, socket, false);
         }
     }
 
-    abstract class TCPConnection extends Selectable implements ITransport {
+    /** Implements the bulk of the tcp client support */
+    private class TCPConnect extends Selectable implements IConnector {
+	IFactory protocolFactory;
+	SocketChannel sc;
+	Socket s;
+	IProtocol p;
+	InetSocketAddress addr;
+	
+	TCPConnect(String addr, int portno, IFactory pf) throws Throwable {
+	    this.protocolFactory = pf;
+	    this.sc = SocketChannel.open();
+	    this.sc.configureBlocking(false);
+	    this.s = this.sc.socket();
+	    this.addr = new InetSocketAddress(addr, portno);
+	    this.connect();
+	}
+	
+	public InetSocketAddress getDestination() { return this.addr; }
+	
+	public void connect() throws Throwable {
+	    this.sc.connect(this.addr);
+	    interestOpsChanged();
+	    
+	    p = this.protocolFactory.buildProtocol(this.addr);
+	    _clients.add(p);
+	    new TCPConnection(p, this.sc, this.s, true);
+	}
+	
+	public void disconnect() {
+	    this.sk.cancel();
+	    try {
+		this.sc.close();
+		this.p.connectionLost(new Throwable("Disconnected"));
+	    } catch (IOException e) {
+		System.out.println(e);
+	    }
+	    interestOpsChanged();
+	}
+	
+	public void stopConnecting() {
+	    this.sk.cancel();
+	    try {
+		this.sc.close();
+	    } catch (IOException e) {
+		System.out.println(e);
+	    }
+	    interestOpsChanged();
+	}
+	
+    }
+    
+    private class TCPConnection extends Selectable implements ITransport {
         ByteBuffer inbuf;
         ArrayList<byte[]> outbufs;
-
+	
         IProtocol protocol;
         SocketChannel channel;
         Socket socket;
         SelectionKey sk;
-
+	
         boolean disconnecting;
-
-        TCPConnection(IProtocol protocol, SocketChannel channel, Socket socket, boolean client) throws Throwable {
+	
+        TCPConnection(IProtocol protocol, SocketChannel channel, Socket socket,
+		      boolean client) throws Throwable {
             inbuf = ByteBuffer.allocate(BUFFER_SIZE);
             inbuf.clear();
             outbufs = new ArrayList<byte[]>();
@@ -239,32 +278,21 @@ public class Reactor {
             this.disconnecting = true;
         }
     }
-    class TCPServer extends TCPConnection {
-        // is there really any need for this to be a separate class?
-        public TCPServer(IProtocol a, SocketChannel b, Socket c) throws Throwable {
-	     super(a, b, c, false);
-        }
-    }
-
-    public interface IDelayedCall {
-        void cancel ();
-    }
-
-    public void callLater(double secondsLater, Runnable runme) {
-        long millisLater = (long) (secondsLater * 1000.0);
-        synchronized(pendingCalls) {
-            pendingCalls.put(System.currentTimeMillis() + millisLater,
-                             runme);
-            // This isn't actually an interestOps
-            interestOpsChanged();
-        }
-    }
-
+    
+    /**
+     * Selectors were added or removed.
+     *
+     * In the normal case, this is simply a no-op.  However, in the case where
+     * the "run()" thread is different from the application code thread, this
+     * is a hook for the reactor to "wakeup" its selector.
+     */
+    private void interestOpsChanged() { }
+    
     /**
      * Run all runnables scheduled to run before right now, and return the
      * timeout.  Negative timeout means "no timeout".
      */
-    long runUntilCurrent(long now) {
+    private long runUntilCurrent(long now) {
         while (0 != pendingCalls.size()) {
             try {
                 long then = pendingCalls.firstKey();
@@ -276,13 +304,13 @@ public class Reactor {
                 }
             } catch (NoSuchElementException nsee) {
                 nsee.printStackTrace();
-                throw new Error("This is impossible; pendingCalls.size was not zero");
+                throw new Error("Impossible; pendingCalls.size was not zero");
             }
         }
         return -1;
     }
 
-    void iterate() throws Throwable {
+    private void iterate() throws Throwable {
         Iterator<SelectionKey> selectedKeys =
             this.selector.selectedKeys().iterator();
         while (selectedKeys.hasNext()) {
@@ -307,7 +335,7 @@ public class Reactor {
     /**
      * This may need to run the runUntilCurrent() in a different thread.
      */
-    long processTimedEvents() {
+    private long processTimedEvents() {
         long now = System.currentTimeMillis();
         return runUntilCurrent(now);
     }
@@ -316,8 +344,19 @@ public class Reactor {
      * Override this method in subclasses to run "iterate" in a different
      * context, i.e. in a thread.
      */
-    void doIteration() throws Throwable {
+    public void doIteration() throws Throwable {
         iterate();
+    }
+    
+    public void wakeup() { selector.wakeup(); }
+    
+    public void callLater(double secondsLater, Runnable runme) {
+        long millisLater = (long) (secondsLater * 1000.0);
+        synchronized(pendingCalls) {
+            pendingCalls.put(System.currentTimeMillis() + millisLater, runme);
+            // This isn't actually an interestOps
+            interestOpsChanged();
+        }
     }
     
     public void run() throws Throwable {
@@ -341,16 +380,22 @@ public class Reactor {
         this.running = false;
     }
     
-    public IListeningPort listenTCP(int portno,
-				    IProtocol.IFactory factory)
-        throws IOException {
+    public IListeningPort listenTCP(int portno, 
+				    IFactory factory) throws IOException {
         return new TCPPort(portno, factory);
     }
-    
+
+    public IConnector connectTCP(String addr, int portno,
+				 IFactory factory) throws Throwable {
+	return new TCPConnect(addr, portno, factory);
+    }
+ 
     public static void msg (String m) {
         System.out.println(m);
     }
     
+    /* A very basic example of how to use the reactor */
+
     static class ShowMessage implements Runnable {
         String x;
         ShowMessage(String s) {
@@ -361,73 +406,6 @@ public class Reactor {
         }
     }
     
-    public interface IConnector {
-	void stopConnecting();
-	void disconnect();
-	void connect() throws Throwable;
-    }
-    
-    public class TCPClient extends TCPConnection {
-	public TCPClient(IProtocol a, SocketChannel b, 
-			 Socket c) throws Throwable {
-	    super(a, b, c, true);
-	}
-    }
-    
-    public class TCPConnect extends Selectable implements IConnector {
-	IProtocol.IFactory protocolFactory;
-	SocketChannel sc;
-	Socket s;
-	IProtocol p;
-	InetSocketAddress addr;
-	
-	TCPConnect(String addr, int portno,
-		   IProtocol.IFactory pf) throws Throwable {
-	    this.protocolFactory = pf;
-	    this.sc = SocketChannel.open();
-	    this.sc.configureBlocking(false);
-	    this.s = this.sc.socket();
-	    this.addr = new InetSocketAddress(addr, portno);
-	    this.connect();
-	}
-	
-	public void connect() throws Throwable {
-	    this.sc.connect(this.addr);
-	    interestOpsChanged();
-	    
-	    p = this.protocolFactory.buildProtocol(this.addr);
-	    _clients.add(p);
-	    new TCPClient(p, this.sc, this.s);
-	}
-	
-	public void disconnect() {
-	    this.sk.cancel();
-	    try {
-		this.sc.close();
-		this.p.connectionLost(new Throwable("Disconnected"));
-	    } catch (IOException e) {
-		System.out.println(e);
-	    }
-	    interestOpsChanged();
-	}
-	
-	public void stopConnecting() {
-	    this.sk.cancel();
-	    try {
-		this.sc.close();
-	    } catch (IOException e) {
-		System.out.println(e);
-	    }
-	    interestOpsChanged();
-	}
-	
-    }
-    
-    public IConnector connectTCP(String addr, int portno,
-				 IProtocol.IFactory factory)
-	throws Throwable {
-	return new TCPConnect(addr, portno, factory);
-    }
     
     public static void main (String[] args) throws Throwable {
         // The most basic server possible.
@@ -438,7 +416,7 @@ public class Reactor {
         r.callLater(2, new ShowMessage("two!"));
         r.callLater(4, new ShowMessage("four!"));
 
-        r.listenTCP(1234, new IProtocol.IFactory() {
+        r.listenTCP(1234, new IFactory() {
                 public IProtocol buildProtocol(Object addr) {
                     return new Protocol() {
                         public void dataReceived(byte[] data) {
