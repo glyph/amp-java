@@ -5,9 +5,8 @@ import java.util.ArrayList;
 import com.twistedmatrix.amp.*;
 import com.twistedmatrix.internet.*;
 
-/*
-  To compile: ant buildexamples
-  To run: ant runexclient
+/** To compile: ant buildexamples
+    To run: ant runexclient
  */
 
 public class CountClient extends AMP {
@@ -15,10 +14,14 @@ public class CountClient extends AMP {
 
     public CountClient(Reactor reactor) {
 	_reactor = reactor;
+
+	/** Local method and arguments names that might be
+	 * called remotely are defined with addCommand */
 	addCommand("Count", "count", new ArrayList<String>(Arrays.asList("n")));
     }
 
-    public CountResp count (int n) { // Class must be public
+    //  Methods associated with commands must be public
+    public CountResp count (int n) {
 	System.out.println("received: " + n + " ");
 
 	CountArgs ca = new CountArgs(n+1);
@@ -73,13 +76,19 @@ public class CountClient extends AMP {
 	}
     }
 
-    public class CountResp { // Return values, class/vars must be public
+    /** Command response class and all its variables must be public
+     * Response class data is ignored when calling remote
+     * Upon success the populated response is returned via the Callback
+     * Upon failure the error is returned via the ErrBack */
+    public class CountResp {
 	public boolean ok = true;
 	public CountResp(boolean b) { ok = b; }
 	public boolean getResponse() { return ok; }
     }
 
-    public class CountArgs { // Values sent, class/vars must be public
+    /** Command arguments class and all its variables must be public
+     * Command arguments class variables must match remote command arguments */
+    public class CountArgs {
 	public int n = 0;
 
 	public CountArgs(int i) { n = i; }
