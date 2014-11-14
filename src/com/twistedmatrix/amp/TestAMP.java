@@ -204,7 +204,7 @@ public class TestAMP extends TestCase {
             public void write(byte[] data) {
                 alb.add(data);
             }
-            public void loseConnection() {
+            public void loseConnection(Throwable reason) {
             }
         }   
         

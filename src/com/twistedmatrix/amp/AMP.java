@@ -208,11 +208,18 @@ public class AMP extends AMPParser {
      */
     public static void main(String[] args) throws Throwable {
         Reactor r = Reactor.get();
-        r.listenTCP(1234, new IFactory() {
+        r.listenTCP(1234, new IServerFactory() {
                 public IProtocol buildProtocol(Object addr) {
                     System.out.println("User connected!!");
                     return new summer();
                 }
+		public void connectionLost(IListeningPort port,
+					   Throwable reason) {
+		    System.out.println("connection lost:" + reason);
+		}
+		public void startedListening(IListeningPort port) {
+		    System.out.println("listening");
+		}
             });
         r.run();
     }

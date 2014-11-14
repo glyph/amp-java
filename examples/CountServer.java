@@ -3,13 +3,13 @@ import com.twistedmatrix.internet.*;
 
 /*
   To compile: ant buildexamples
-  To run: ant runexclient
+  To run: ant runexserver
  */
 
-public class CountClient extends AMP {
+public class CountServer extends AMP {
     Reactor _reactor = null;
 
-    public CountClient(Reactor reactor) { _reactor = reactor; }
+    public CountServer(Reactor reactor) { _reactor = reactor; }
 
     /*
       This annotation is used to send the data. The name is the name of the
@@ -24,7 +24,7 @@ public class CountClient extends AMP {
 	CountArgs ca = new CountArgs(n+1);
 	CountResp cr = new CountResp(true);
 
-	if (ca.getArg() < 10) {
+	if (ca.getArg() < 11) {
 	    System.out.println("sending: " + ca.getArg());
 
 	    Deferred dfd = callRemote("Count", ca, cr);
@@ -37,13 +37,6 @@ public class CountClient extends AMP {
 
     public void connectionMade() {
 	System.out.println("connected");
-
-	CountArgs ca = new CountArgs(1);
-	CountResp cr = new CountResp(true);
-
-	Deferred dfd = callRemote("Count", ca, cr);
-	dfd.addCallback(new CountHandler());
-	dfd.addErrback(new ErrHandler());
     }
 
     public void connectionLost(Throwable reason) {
@@ -88,22 +81,17 @@ public class CountClient extends AMP {
 
     public static void main(String[] args) throws Throwable {
 	Reactor reactor = Reactor.get();
-	reactor.connectTCP("127.0.0.1", 7113, new IClientFactory() {
+	reactor.listenTCP(7113, new IServerFactory() {
 		public IProtocol buildProtocol(Object addr) {
 		    System.out.println("building protocol");
-		    return new CountClient(reactor);
+		    return new CountServer(reactor);
 		}
 
-		public void startedConnecting(IConnector connector) {
-		    System.out.println("connecting");
+		public void startedListening(IListeningPort port) {
+		    System.out.println("listening");
 		}
 
-		public void clientConnectionFailed(IConnector connector,
-						   Throwable reason) {
-		    System.out.println("connectiion failed:" + reason);
-		    System.exit(0);
-		}
-		public void clientConnectionLost(IConnector connector,
+		public void connectionLost(IListeningPort port,
 						 Throwable reason) {
 		    System.out.println("connection lost 2:" + reason);
 		}
