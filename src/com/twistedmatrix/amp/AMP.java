@@ -1,5 +1,7 @@
 package com.twistedmatrix.amp;
 
+import java.util.Map;
+import java.util.List;
 import java.util.HashMap;
 import java.util.ArrayList;
 
@@ -12,15 +14,23 @@ import java.lang.annotation.Retention;
 import com.twistedmatrix.internet.*;
 
 /**
- * The actual asynchronous messaging protocol, with command dispatch and everything.
+ * The actual asynchronous messaging protocol, with command dispatch.
  */
 
 public class AMP extends AMPParser {
-    /**
-     * Internal record for tracking the results of commands that were
-     * previously issued.
-     */
-    static class CommandResult {
+    private int counter;
+    private Map<String, Command> commands;
+    private Map<String, CommandResult> results;
+    private enum Forbidden { _answer, _command, _ask, _error,
+			     _error_code, _error_description };
+
+    public AMP() {
+	results = new HashMap<String, CommandResult>();
+	commands = new HashMap<String, Command>();
+    }
+
+    /** Internal record for tracking the results of commands sent. */
+    private static class CommandResult {
         Object protoResult;
         Deferred deferred;
         CommandResult(Object protoResult, Deferred deferred) {
@@ -29,27 +39,47 @@ public class AMP extends AMPParser {
         }
     }
 
-    HashMap<String, CommandResult> pendingCommands = new HashMap<String, CommandResult>();
-
-    /**
-     * Annotation interface for exposing commands.
+    /** Class to define methods and their arguments. The method specified
+     * must be public.
      */
-    @Retention(RetentionPolicy.RUNTIME)
-    public @interface Command {
-        /**
-         * A comma-separated list of argument names.
-         */
-        String name();
-        String arguments();
+    private class Command {
+	private String       _method;
+	private List<String> _arguments;
+
+	public Command(String method, List<String> arguments) {
+	    _method = method;
+	    _arguments = arguments;
+	}
+
+	public String getMethod() { return _method; }
+	public List<String> getArguments() { return _arguments; }
     }
 
-    int counter;
+    /** Associate a command with a method and its arguments. */
+    public void addCommand(String name, String method, List<String> arguments) {
+	commands.put(name, new Command(method, arguments));
+
+	for (Forbidden f: Forbidden.values())
+	    if (name.equals(f.name()))
+		throw new Error ("Command name '" + name +
+				 "' is not allowed!");
+	for (Forbidden f: Forbidden.values())
+	    if (method.equals(f.name()))
+		throw new Error ("Method name '" + method +
+				 "' is not allowed!");
+	for (String argument: arguments) {
+	    for (Forbidden f: Forbidden.values())
+		if (argument.equals(f.name()))
+		    throw new Error ("Argument name '" + argument +
+				     "' is not allowed!");
+	}
+    }
 
     /**
      * Return a string unique for this connection, to uniquely identify
      * subsequent requests.
      */
-    String nextTag() {
+    private String nextTag() {
         counter++;
         return Integer.toHexString(counter);
     }
@@ -58,7 +88,7 @@ public class AMP extends AMPParser {
      * Send a remote command.
      *
      *  name: name of the remote command,
-     *  args: class containing values to send, 
+     *  args: class containing values to send,
      *  result: class defining response variables, any data is ignored
      *
      */
@@ -70,7 +100,7 @@ public class AMP extends AMPParser {
         box.extractFrom(args);
         this.sendBox(box);
         Deferred d = new Deferred();
-        pendingCommands.put(asktag, new CommandResult(result, d));
+        results.put(asktag, new CommandResult(result, d));
         return d;
     }
 
@@ -102,125 +132,83 @@ public class AMP extends AMPParser {
         }
 
         if (null == msgtype) {
-            /*
-              An error or something?  We definitely don't know what to do with it.
-            */
+            /* An error?  We definitely don't know what to do with it.  */
             return;
         }
 
         if ("_answer".equals(msgtype)) {
-            CommandResult cr = this.pendingCommands.get(cmdprop);
+            CommandResult cr = this.results.get(cmdprop);
             box.fillOut(cr.protoResult);
             cr.deferred.callback(cr.protoResult);
         } else if ("_error".equals(msgtype)) {
-            CommandResult cr = this.pendingCommands.get(cmdprop);
-            AMPBox.ErrorPrototype error = box.fillError();
+            CommandResult cr = this.results.get(cmdprop);
+            ErrorPrototype error = box.fillError();
             cr.deferred.errback(new Deferred.Failure(error.getThrowable()));
         } else if ("_command".equals(msgtype)) {
-            for (Method m : this.getClass().getMethods()) {
-                AMP.Command c = (AMP.Command) m.getAnnotation(AMP.Command.class);
-                if (null != c) {
-                    if (cmdprop.equals(c.name())) {
-                        // At this point: it's a command, the command name
-                        // from the network matches, it's time to marshal the
-                        // arguments and then call it.
-                        int i = 0;
-                        Class[] ptypes = m.getParameterTypes();
-                        String[] argnames = c.arguments().split(" ");
-                        if (1 == argnames.length && "".equals(argnames[0])) {
-                            argnames = new String[0];
-                        }
-                        if (ptypes.length != argnames.length) {
-                            throw new Error (m + " signature did not match '" +
-                                             c.arguments() + "'");
-                        }
-                        Object[] parameters = new Object[ptypes.length];
+	    Method m = null;
+	    for (String cmd: commands.keySet())
+		if (cmd.equals(cmdprop))
+		    for (Method p: this.getClass().getMethods())
+			if (p.getName().equals(commands.get(cmd).getMethod()))
+			    m = p;
 
-                        for (String argname : argnames) {
-                            Class thisType = ptypes[i];
-                            parameters[i] = box.getAndDecode(argname, thisType);
-                            i++;
-                        }
+	    if (null == m) {
+		throw new Error ("No method defined to handle command '" +
+				 cmdprop + "'!");
+	    } else {
+		// At this point: it's a command, the command name
+		// from the network matches, it's time to marshal the
+		// arguments and then call it.
+		int i = 0;
+		Class[] ptypes = m.getParameterTypes();
+		List<String> args = commands.get(cmdprop).getArguments();
+		if (ptypes.length != args.size()) {
+		    throw new Error (m + " signature did not match " +
+				     "command arguments!");
+		}
+		Object[] parameters = new Object[ptypes.length];
 
-                        // Okay, I've got an array of parameters.  Time to
-                        // call a method.
-                        try {
-                            Object result = m.invoke(this, parameters);
-                            if (result == null) {
-                                AMPBox emptyResponse = new AMPBox();
-                                emptyResponse.put("_answer", box.get("_ask"));
-                                this.sendBox(emptyResponse);
-                            } else if (result instanceof Deferred) {
-                                Deferred d = (Deferred) result;
-                                class SuccessHandler implements Deferred.Callback {
-                                    byte[] tag;
-                                    public SuccessHandler(byte[] tag) {
-                                        this.tag = tag;
-                                    }
-                                    public Object callback(Object retval) {
-                                        AMPBox response = new AMPBox();
-                                        response.extractFrom(retval);
-                                        response.put("_answer", this.tag);
-                                        AMP.this.sendBox(response);
-                                        return null;
-                                    }
-                                }
-                                // XXX TODO: addErrback
-                                d.addCallback(new SuccessHandler(box.get("_ask")));
-                            } else {
-                                AMPBox resultBox = new AMPBox();
-                                resultBox.put("_answer", box.get("_ask"));
-                                resultBox.extractFrom(result);
-                                this.sendBox(resultBox);
-                            }
-                        } catch (Throwable t) {
-                            t.printStackTrace();
-                        }
-                    }
-                }
+		for (String argname : args) {
+		    Class thisType = ptypes[i];
+		    parameters[i] = box.getAndDecode(argname, thisType);
+		    i++;
+		}
+
+		// Okay, I've got an array of parameters.  Time to
+		// call a method.
+		try {
+		    Object result = m.invoke(this, parameters);
+		    if (result == null) {
+			AMPBox emptyResponse = new AMPBox();
+			emptyResponse.put("_answer", box.get("_ask"));
+			this.sendBox(emptyResponse);
+		    } else if (result instanceof Deferred) {
+			Deferred d = (Deferred) result;
+			class SuccessHandler implements Deferred.Callback {
+			    byte[] tag;
+			    public SuccessHandler(byte[] tag) {
+				this.tag = tag;
+			    }
+			    public Object callback(Object retval) {
+				AMPBox response = new AMPBox();
+				response.extractFrom(retval);
+				response.put("_answer", this.tag);
+				AMP.this.sendBox(response);
+				return null;
+			    }
+			}
+			// XXX TODO: addErrback
+			d.addCallback(new SuccessHandler(box.get("_ask")));
+		    } else {
+			AMPBox resultBox = new AMPBox();
+			resultBox.put("_answer", box.get("_ask"));
+			resultBox.extractFrom(result);
+			this.sendBox(resultBox);
+		    }
+		} catch (Throwable t) {
+		    t.printStackTrace();
+		}
             }
         }
-    }
-
-    @AMP.Command(
-        name="ping",
-        arguments="")
-    public void ping() {
-    }
-
-    static class summer extends AMP {
-
-        class sumResult {
-            public int sumValue = 0;
-        }
-
-        @AMP.Command(name="sum", arguments="a b")
-        public sumResult sum (int a, int b) {
-            sumResult sr = new sumResult();
-            sr.sumValue = a + b;
-            return sr;
-        }
-    }
-
-    /**
-     * This simple main-point starts a server that can listen on port 1234 for
-     * AMP 'ping' requests.
-     */
-    public static void main(String[] args) throws Throwable {
-        Reactor r = Reactor.get();
-        r.listenTCP(1234, new IServerFactory() {
-                public IProtocol buildProtocol(Object addr) {
-                    System.out.println("User connected!!");
-                    return new summer();
-                }
-		public void connectionLost(IListeningPort port,
-					   Throwable reason) {
-		    System.out.println("connection lost:" + reason);
-		}
-		public void startedListening(IListeningPort port) {
-		    System.out.println("listening");
-		}
-            });
-        r.run();
     }
 }

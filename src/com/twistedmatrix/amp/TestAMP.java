@@ -1,4 +1,3 @@
-
 package com.twistedmatrix.amp;
 
 import java.util.List;
@@ -182,9 +181,6 @@ public class TestAMP extends TestCase {
 
         public void testCommandDispatch() throws Throwable {
             AMP a = new AMP() {
-                    @AMP.Command(
-                        name="ninjas",
-                        arguments="")
                     public void thingy() {
                         rancommandcount ++;
                     }
@@ -192,6 +188,7 @@ public class TestAMP extends TestCase {
             AMPBox ab = new AMPBox();
             ab.put("_command", "ninjas");
             ab.put("_ask", "ninjas");
+	    a.addCommand("ninjas", "thingy", new ArrayList<String>());
             a.ampBoxReceived(ab);
             assertEquals(1, rancommandcount);
         }
@@ -206,8 +203,8 @@ public class TestAMP extends TestCase {
             }
             public void loseConnection(Throwable reason) {
             }
-        }   
-        
+        }
+
         /**
          * Verify that AMP commands which return a Deferred are answered
          * only when the Deferred fires.
@@ -216,15 +213,15 @@ public class TestAMP extends TestCase {
 
             class DeferredReturner extends AMP {
                 public Deferred d;
-                @AMP.Command(name="ninjas", arguments="")
                 public Deferred thingy() {
                     d = new Deferred();
                     return d;
                 }
             }
 
-            DeferredReturner dr = new DeferredReturner();
             FakeTransport ft = new FakeTransport();
+            DeferredReturner dr = new DeferredReturner();
+	    dr.addCommand("ninjas", "thingy", new ArrayList<String>());
             dr.makeConnection(ft);
 
             AMPBox ab = new AMPBox();
@@ -245,15 +242,14 @@ public class TestAMP extends TestCase {
          * do not get Deferred.
          */
         public void testSynchronousValue() throws Throwable {
-            
+
             class SynchronousValue {
                 // Make some default values
                 public String strValue = "samurai";
                 public int intValue = 0;
             }
-            
+
             class SynchronousReturner extends AMP {
-                @AMP.Command(name="returnSynch", arguments="")
                 public SynchronousValue returnSynch() {
                     SynchronousValue thisSV = new SynchronousValue();
                     // Change those values arbitrarily
@@ -262,19 +258,20 @@ public class TestAMP extends TestCase {
                     return thisSV;
                 }
             }
-            
+
             FakeTransport ft = new FakeTransport();
-            
+
             SynchronousReturner sr = new SynchronousReturner();
+	    sr.addCommand("returnSynch", "returnSynch",new ArrayList<String>());
             sr.makeConnection(ft);
-            
+
             this.assertEquals(0, ft.alb.size());
-            
+
             AMPBox ab = new AMPBox();
             ab.put("_command", "returnSynch");
             ab.put("_ask", "> pirates");
             sr.ampBoxReceived(ab);
-            
+
             this.assertEquals(1, ft.alb.size());
             List<AMPBox> lab = AMPParser.parseData(ft.alb.get(0));
             this.assertEquals(1, lab.size());
@@ -282,14 +279,11 @@ public class TestAMP extends TestCase {
             this.assertEquals("ninjas", new String(lab.get(0).get("strValue")));
             this.assertEquals("1", new String(lab.get(0).get("intValue")));
         }
-        
+
         ArrayList<Integer> ali;
 
         public class WhatTheHell extends AMP {
-            public @AMP.Command(name="addstuff",
-                         arguments="a b c d")
-                void
-            thingy (int java, int doesnt, int know, int argnames) {
+	    public void thingy (int java, int doesnt, int know, int argnames) {
                 rancommandcount++;
                 ali.add(java);
                 ali.add(doesnt);
@@ -301,6 +295,8 @@ public class TestAMP extends TestCase {
         public void testCommandArgumentParsing() throws Throwable {
             this.ali = new ArrayList<Integer>();
             AMP a = new WhatTheHell();
+	    List<String> args = new ArrayList<String>(Arrays.asList("a","b","c","d"));
+	    a.addCommand("addstuff", "thingy", args);
 
             AMPBox ab = new AMPBox();
             ab.put("_command", "addstuff");

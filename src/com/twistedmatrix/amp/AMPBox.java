@@ -1,4 +1,3 @@
-
 package com.twistedmatrix.amp;
 
 import java.util.ArrayList;
@@ -8,13 +7,9 @@ import java.util.Map;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.HashSet;
-
 import java.io.ByteArrayOutputStream;
 
-// import java.util.UnsupportedOperationException;
-
 import java.io.UnsupportedEncodingException;
-
 import java.lang.reflect.Field;
 
 /**
@@ -23,22 +18,11 @@ import java.lang.reflect.Field;
  */
 
 public class AMPBox implements Map<byte[], byte[]> {
+    private ArrayList<Pair> pairs;
 
-  public class ErrorPrototype {
-    private String _code;
-    private String _description;
-
-    public ErrorPrototype (String code, String description) {
-      _code = code;
-      _description = description;
+    public AMPBox() {
+        pairs = new ArrayList<Pair>();
     }
-
-    public String getCode() { return _code; }
-    public String getDescription() { return _description; }
-    public Throwable getThrowable() {
-      return new Throwable(_code + " " + _description);
-    }
-  }
 
     private class Pair implements Map.Entry<byte[], byte[]> {
         Pair(byte[] k, byte[] v) {
@@ -60,20 +44,14 @@ public class AMPBox implements Map<byte[], byte[]> {
         public byte[] getKey() { return key; }
         public byte[] getValue() { return value; }
 
-        public byte[] setValue(byte[] value) throws UnsupportedOperationException {
+        public byte[] setValue(byte[] value)
+	    throws UnsupportedOperationException {
             throw new UnsupportedOperationException();
         }
     }
 
-    private ArrayList<Pair> pairs;
-
-    public AMPBox() {
-        pairs = new ArrayList<Pair>();
-    }
-
-
     /* implementation of Map interface */
-    public void clear () throws UnsupportedOperationException {
+    public void clear() throws UnsupportedOperationException {
         throw new UnsupportedOperationException();
     }
 

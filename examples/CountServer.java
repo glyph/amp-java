@@ -1,3 +1,7 @@
+import java.util.List;
+import java.util.Arrays;
+import java.util.ArrayList;
+
 import com.twistedmatrix.amp.*;
 import com.twistedmatrix.internet.*;
 
@@ -9,15 +13,12 @@ import com.twistedmatrix.internet.*;
 public class CountServer extends AMP {
     Reactor _reactor = null;
 
-    public CountServer(Reactor reactor) { _reactor = reactor; }
+    public CountServer(Reactor reactor) {
+	super();
+	_reactor = reactor;
+	addCommand("Count", "count", new ArrayList<String>(Arrays.asList("n")));
+    }
 
-    /*
-      This annotation is used to send the data. The name is the name of the
-      method and arguments is a space delimited list of the arguments in the
-      "arguments" class you hand to callRemote().
-    */
-
-    @AMP.Command(name="Count", arguments="n")
     public CountResp count (int n) { // Class must be public
 	System.out.println("received: " + n + " ");
 

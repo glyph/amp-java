@@ -8,13 +8,13 @@ import java.io.UnsupportedEncodingException;
 
 public abstract class AMPParser extends Int16StringReceiver {
 
-    enum State { KEY, VALUE, INIT };
+    private enum State { KEY, VALUE, INIT };
 
-    State state = State.INIT;
+    private State state = State.INIT;
 
-    byte[] workingKey;
+    protected byte[] workingKey;
 
-    AMPBox workingBox;
+    private AMPBox workingBox;
 
     public void stringReceived(byte[] hunk) {
         switch(this.state) {
