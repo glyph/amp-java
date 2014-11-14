@@ -20,7 +20,7 @@ public class CountServer extends AMP {
 	addCommand("Count", "count", new ArrayList<String>(Arrays.asList("n")));
     }
 
-    //  Methods associated with commands must be public
+    /** Methods that might be called remotely must be public */
     public CountResp count (int n) {
 	System.out.println("received: " + n + " ");
 
