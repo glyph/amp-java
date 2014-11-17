@@ -1,7 +1,7 @@
 package com.twistedmatrix.amp;
 
 import java.util.Map;
-import java.util.Arrays;
+//import java.util.Arrays;
 import java.util.List;
 import java.util.HashMap;
 import java.util.ArrayList;
@@ -45,20 +45,20 @@ public class AMP extends AMPParser {
      */
     private class Command {
 	private String       _method;
-	private List<String> _arguments;
+	private String[]     _params;
 
-	public Command(String method, List<String> arguments) {
+	public Command(String method, String[] params) {
 	    _method = method;
-	    _arguments = arguments;
+	    _params = params;
 	}
 
-	public String getMethod() { return _method; }
-	public List<String> getArguments() { return _arguments; }
+	public String   getMethod() { return _method; }
+	public String[] getParams() { return _params; }
     }
 
     /** Associate an incoming command with a local method and its arguments. */
     public void localCommand(String name, String method, String[] params) {
-	commands.put(name, new Command(method, Arrays.asList(params)));
+	commands.put(name, new Command(method, params));
 
 	for (Forbidden f: Forbidden.values())
 	    if (name.equals(f.name()))
@@ -147,36 +147,31 @@ public class AMP extends AMPParser {
             cr.deferred.errback(new Deferred.Failure(error.getThrowable()));
         } else if ("_command".equals(msgtype)) {
 	    Method m = null;
+	    Object[] parameters = null;
 	    for (String cmd: commands.keySet())
 		if (cmd.equals(cmdprop))
 		    for (Method p: this.getClass().getMethods())
-			if (p.getName().equals(commands.get(cmd).getMethod()))
-			    m = p;
-
+			if (p.getName().equals(commands.get(cmd).getMethod())) {
+			    // The remote command name matches a local one.
+			    Class[] ptypes = p.getParameterTypes();
+			    parameters = new Object[ptypes.length];
+			    String[] lparams = commands.get(cmd).getParams();
+			    if (ptypes.length == lparams.length) {
+				// The parameters match too, we have a winner!
+				m = p;
+				for (int i = 0; i < ptypes.length; i++) {
+				    Class thisType = ptypes[i];
+				    parameters[i] = box.getAndDecode(lparams[i],
+								     thisType);
+				}
+			    }
+			}
+	    
 	    if (null == m) {
 		throw new Error ("No method defined to handle command '" +
 				 cmdprop + "'!");
 	    } else {
-		// At this point: it's a command, the command name
-		// from the network matches, it's time to marshal the
-		// arguments and then call it.
-		int i = 0;
-		Class[] ptypes = m.getParameterTypes();
-		List<String> args = commands.get(cmdprop).getArguments();
-		if (ptypes.length != args.size()) {
-		    throw new Error (m + " signature did not match " +
-				     "command arguments!");
-		}
-		Object[] parameters = new Object[ptypes.length];
-
-		for (String argname : args) {
-		    Class thisType = ptypes[i];
-		    parameters[i] = box.getAndDecode(argname, thisType);
-		    i++;
-		}
-
-		// Okay, I've got an array of parameters.  Time to
-		// call a method.
+		// We have method and an array of parameters, time to call it.
 		try {
 		    Object result = m.invoke(this, parameters);
 		    if (result == null) {
