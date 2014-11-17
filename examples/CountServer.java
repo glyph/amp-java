@@ -16,24 +16,26 @@ public class CountServer extends AMP {
 	
 	/** Local methods with parameter names that might be called  
 	 * remotely are defined with localCommand. Parameters are:
-	 * Command name, local method, local parameters*/
+	 * Command name, local method, local parameters */
 	localCommand("Count", "count", new String[] {"n"});
     }
     
-    /** Class that handles the results of a command invoked remotely. */
-    class CountHandler implements Deferred.Callback {
-	public Object callback(Object retval) {
-	    CountResp ret = (CountResp) retval;
+    /** Class that handles the results of a command invoked remotely. 
+     * The callback method is called with a populated response class. 
+     * Returned object is handed to chained callback if it exists. */
+    class CountHandler implements Deferred.Callback<CountResp> {
+	public Object callback(CountResp retval) {
 
-	    System.out.println("response: " + ret.getResponse());
+	    System.out.println("response: " + retval.getResponse());
 	    return null;
 	}
     }
 
-    /** Class that handles the problem if a remote command goes awry. */
-    class ErrHandler implements Deferred.Callback {
-	public Object callback(Object retval) {
-	    Deferred.Failure err = (Deferred.Failure) retval;
+    /** Class that handles the problem if a remote command goes awry. 
+     * The callback method is called with a populated Failure class.  
+     * Returned object is handed to chained errback if it exists. */
+    class ErrHandler implements Deferred.Callback<Deferred.Failure> {
+	public Object callback(Deferred.Failure err) {
 
 	    System.out.println("error: " + err.get());
 
@@ -45,18 +47,19 @@ public class CountServer extends AMP {
 	}
     }
 
-    /** Command response class and all its variables must be public
-     * Response class data is ignored when calling remote
-     * Upon success the populated response is returned via the Callback
-     * Upon failure the error is returned via the ErrBack */
+    /** Command response class and all its variables must be public.
+     * Response class data is ignored when calling remote.
+     * Upon success the populated response is returned via the Callback.
+     * Upon failure the error is returned via the ErrBack. */
     public class CountResp {
 	public boolean ok = true;
 	public CountResp(boolean b) { ok = b; }
 	public boolean getResponse() { return ok; }
     }
 
-    /** Command arguments class and all its variables must be public
-     * Command arguments class variables must match remote command arguments */
+    /** Command arguments class and all its variables must be public.
+     * This class contains the parameters when invoking the remote command.
+     * Command arguments class variables must match remote command arguments. */
     public class CountArgs {
 	public int n = 0;
 
@@ -74,7 +77,9 @@ public class CountServer extends AMP {
 	if (ca.getArg() < 11) {
 	    System.out.println("sending: " + ca.getArg());
 
-	    Deferred dfd = callRemote("Count", ca, cr);
+	    AMP.RemoteCommand<CountResp> remote = 
+		new RemoteCommand<CountResp>("Count", ca, cr);
+	    Deferred dfd = remote.callRemote();
 	    dfd.addCallback(new CountHandler());
 	    dfd.addErrback(new ErrHandler());
 	} else { _reactor.stop(); }

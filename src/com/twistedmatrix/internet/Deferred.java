@@ -26,10 +26,10 @@ public class Deferred {
     }
 
     static class CallbackPair {
-        Callback callback;
-        Callback errback;
+        Callback<Object> callback;
+        Callback<Object> errback;
 
-        CallbackPair(Callback callback, Callback errback) {
+        CallbackPair(Callback<Object> callback, Callback<Object> errback) {
             if (null == callback) {
                 throw new Error("null callback");
             }
@@ -49,17 +49,17 @@ public class Deferred {
      */
 
 
-    public interface Callback {
-        Object callback(Object o) throws Exception;
+    public interface Callback<T> {
+        Object callback(T retval) throws Exception;
     }
 
-    static class Passthru implements Callback {
-        public Object callback(Object o) {
-            return o;
+    static class Passthru implements Callback<Object> {
+        public Object callback(Object obj) {
+            return obj;
         }
     }
 
-    public static final Callback passthru = new Passthru();
+    public static final Callback<Object> passthru = new Passthru();
 
     ArrayList<CallbackPair> callbacks;
 
@@ -94,7 +94,7 @@ public class Deferred {
             this.callbacks = new ArrayList<CallbackPair>();
             while (holder.size() != 0) {
                 CallbackPair cbp = holder.remove(0);
-                Callback theCallback;
+                Callback<Object> theCallback;
                 if (this.result instanceof Failure) {
                     theCallback = cbp.errback;
                 } else {
@@ -117,22 +117,23 @@ public class Deferred {
         }
     }
 
-    public void addCallbacks(Callback callback, Callback errback) {
+    public void addCallbacks(Callback<Object> callback, 
+			     Callback<Object> errback) {
         this.callbacks.add(new CallbackPair(callback, errback));
         if (calledYet) {
             this.runCallbacks();
         }
     }
 
-    public void addCallback(Callback callback) {
+    public void addCallback(Callback<Object> callback) {
         this.addCallbacks(callback, passthru);
     }
 
-    public void addErrback(Callback errback) {
+    public void addErrback(Callback<Object> errback) {
         this.addCallbacks(passthru, errback);
     }
 
-    public void addBoth(Callback callerrback) {
+    public void addBoth(Callback<Object> callerrback) {
         this.addCallbacks(callerrback, callerrback);
     }
 

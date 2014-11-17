@@ -1,53 +1,40 @@
 package com.twistedmatrix.amp;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
-//import java.util.Arrays;
 import java.util.List;
 import java.util.HashMap;
 import java.util.ArrayList;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.InvocationTargetException;
-
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Retention;
 
 import com.twistedmatrix.internet.*;
+import com.twistedmatrix.internet.Deferred.Failure;
 
 /**
  * The actual asynchronous messaging protocol, with command dispatch.
  */
 
 public class AMP extends AMPParser {
-    private int counter;
-    private Map<String, Command> commands;
-    private Map<String, CommandResult> results;
+    private int _counter;
+    private Map<String, LocalCommand> _locals;
+    private Map<String, RemoteCommand> _remotes;
     private enum Forbidden { _answer, _command, _ask, _error,
 			     _error_code, _error_description };
 
     public AMP() {
-	results = new HashMap<String, CommandResult>();
-	commands = new HashMap<String, Command>();
+	_locals = new HashMap<String, LocalCommand>();
+	_remotes = new HashMap<String, RemoteCommand>();
     }
 
-    /** Internal record for tracking the results of commands sent. */
-    private static class CommandResult {
-        Object protoResult;
-        Deferred deferred;
-        CommandResult(Object protoResult, Deferred deferred) {
-            this.protoResult = protoResult;
-            this.deferred = deferred;
-        }
-    }
-
-    /** Class to define methods and their arguments. The method specified
+    /** Class to define methods and their paramters. The method specified
      * must be public.
      */
-    private class Command {
+    private class LocalCommand {
 	private String       _method;
 	private String[]     _params;
 
-	public Command(String method, String[] params) {
+	public LocalCommand(String method, String[] params) {
 	    _method = method;
 	    _params = params;
 	}
@@ -61,17 +48,45 @@ public class AMP extends AMPParser {
      * subsequent requests.
      */
     private String nextTag() {
-        counter++;
-        return Integer.toHexString(counter);
+        _counter++;
+        return Integer.toHexString(_counter);
+    }
+
+    /** Class for tracking the commands sent and their responses. */
+    public class RemoteCommand<R> {
+	private String   _asktag   = "";
+        private R        _response = null;
+        private Deferred _deferred = null;
+	private AMPBox   _box      = null;
+	
+        public RemoteCommand(String name, Object params, R response) {
+	    _box = new AMPBox();
+	    _asktag = AMP.this.nextTag();
+            _response = response;
+	    
+	    _box.putAndEncode("_command", name);
+	    _box.putAndEncode("_ask", _asktag);
+	    _box.extractFrom(params);
+        }
+	
+	public R getResponse() { return _response; }
+	public Deferred getDeferred() { return _deferred; }
+
+	public Deferred callRemote() { 
+	    AMP.this.sendBox(_box);
+	    AMP.this._remotes.put(_asktag, RemoteCommand.this);
+            _deferred = new Deferred();
+	    return _deferred;
+	}
     }
 
     /** Associate an incoming command with a local method and its arguments. */
     public void localCommand(String name, String method, String[] params) {
-	commands.put(name, new Command(method, params));
+	_locals.put(name, new LocalCommand(method, params));
 
 	for (Forbidden f: Forbidden.values())
 	    if (name.equals(f.name()))
-		throw new Error ("Command name '" + name +
+		throw new Error ("LocalCommand name '" + name +
 				 "' is not allowed!");
 	for (Forbidden f: Forbidden.values())
 	    if (method.equals(f.name()))
@@ -83,26 +98,6 @@ public class AMP extends AMPParser {
 		    throw new Error ("Parameter name '" + param +
 				     "' is not allowed!");
 	}
-    }
-
-    /**
-     * Send a remote command.
-     *
-     *  name: name of the remote command,
-     *  args: class containing values to send,
-     *  result: class defining response variables, any data is ignored
-     *
-     */
-    public Deferred callRemote(String name, Object args, Object result) {
-        AMPBox box = new AMPBox();
-        String asktag = this.nextTag();
-        box.putAndEncode("_command", name);
-        box.putAndEncode("_ask", asktag);
-        box.extractFrom(args);
-        this.sendBox(box);
-        Deferred d = new Deferred();
-        results.put(asktag, new CommandResult(result, d));
-        return d;
     }
 
     /**
@@ -138,24 +133,24 @@ public class AMP extends AMPParser {
         }
 
         if ("_answer".equals(msgtype)) {
-            CommandResult cr = this.results.get(cmdprop);
-            box.fillOut(cr.protoResult);
-            cr.deferred.callback(cr.protoResult);
+            RemoteCommand rc = this._remotes.get(cmdprop);
+            box.fillOut(rc.getResponse());
+            rc.getDeferred().callback(rc.getResponse());
         } else if ("_error".equals(msgtype)) {
-            CommandResult cr = this.results.get(cmdprop);
+            RemoteCommand rc = this._remotes.get(cmdprop);
             ErrorPrototype error = box.fillError();
-            cr.deferred.errback(new Deferred.Failure(error.getThrowable()));
+            rc.getDeferred().errback(new Failure(error.getThrowable()));
         } else if ("_command".equals(msgtype)) {
 	    Method m = null;
 	    Object[] parameters = null;
-	    for (String cmd: commands.keySet())
+	    for (String cmd: _locals.keySet())
 		if (cmd.equals(cmdprop))
 		    for (Method p: this.getClass().getMethods())
-			if (p.getName().equals(commands.get(cmd).getMethod())) {
+			if (p.getName().equals(_locals.get(cmd).getMethod())) {
 			    // The remote command name matches a local one.
 			    Class[] ptypes = p.getParameterTypes();
 			    parameters = new Object[ptypes.length];
-			    String[] lparams = commands.get(cmd).getParams();
+			    String[] lparams = _locals.get(cmd).getParams();
 			    if (ptypes.length == lparams.length) {
 				// The parameters match too, we have a winner!
 				m = p;
