@@ -11,7 +11,11 @@ from twisted.application.internet import StreamServerEndpointService
 
 class Count(amp.Command):
     arguments = [('n', amp.Integer())]
-    response = [('ok', amp.Boolean())]
+    response = [('oki', amp.Integer()),
+                ('oks', amp.String()),
+                ('okde', amp.Unicode()),
+                ('okb', amp.Boolean()),
+                ('okdo', amp.Float())]
 
 class Counter(amp.AMP):
     @Count.responder
@@ -28,12 +32,13 @@ class Counter(amp.AMP):
         else:
             reactor.stop()
 
-        return {'ok': True}
+        return { 'oki': 1, 'oks': '2', 'okde': unicode('3'), 'okb': True,
+                 'okdo': 5.123 }
 
     def connectionLost(self, reason):
         print 'Client closed connection!'
 
- 
+
 application = Application('Count Server')
 endpoint = TCP4ServerEndpoint(reactor, 7113)
 factory = Factory()

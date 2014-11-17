@@ -10,18 +10,18 @@ import com.twistedmatrix.internet.*;
 
 public class CountServer extends AMP {
     Reactor _reactor = null;
-    
+
     public CountServer(Reactor reactor) {
 	_reactor = reactor;
-	
-	/** Local methods with parameter names that might be called  
+
+	/** Local methods with parameter names that might be called
 	 * remotely are defined with localCommand. Parameters are:
 	 * Command name, local method, local parameters */
 	localCommand("Count", "count", new String[] {"n"});
     }
-    
-    /** Class that handles the results of a command invoked remotely. 
-     * The callback method is called with a populated response class. 
+
+    /** Class that handles the results of a command invoked remotely.
+     * The callback method is called with a populated response class.
      * Returned object is handed to chained callback if it exists. */
     class CountHandler implements Deferred.Callback<CountResp> {
 	public Object callback(CountResp retval) {
@@ -31,8 +31,8 @@ public class CountServer extends AMP {
 	}
     }
 
-    /** Class that handles the problem if a remote command goes awry. 
-     * The callback method is called with a populated Failure class.  
+    /** Class that handles the problem if a remote command goes awry.
+     * The callback method is called with a populated Failure class.
      * Returned object is handed to chained errback if it exists. */
     class ErrHandler implements Deferred.Callback<Deferred.Failure> {
 	public Object callback(Deferred.Failure err) {
@@ -52,9 +52,16 @@ public class CountServer extends AMP {
      * Upon success the populated response is returned via the Callback.
      * Upon failure the error is returned via the ErrBack. */
     public class CountResp {
-	public boolean ok = true;
-	public CountResp(boolean b) { ok = b; }
-	public boolean getResponse() { return ok; }
+	public Integer oki = 1;
+	public byte[] oks = "2".getBytes();
+	public String okde = "3";
+	public Boolean okb = true;
+	public Double okdo = Double.valueOf("5.123");
+
+	public String getResponse() {
+	    return "Int: " + oki + " String: " + oks + " Unicode: " + okde +
+		" Boolean: " + okb + " Double: " + okdo;
+	}
     }
 
     /** Command arguments class and all its variables must be public.
@@ -72,12 +79,12 @@ public class CountServer extends AMP {
 	System.out.println("received: " + n + " ");
 
 	CountArgs ca = new CountArgs(n+1);
-	CountResp cr = new CountResp(true);
+	CountResp cr = new CountResp();
 
 	if (ca.getArg() < 11) {
 	    System.out.println("sending: " + ca.getArg());
 
-	    AMP.RemoteCommand<CountResp> remote = 
+	    AMP.RemoteCommand<CountResp> remote =
 		new RemoteCommand<CountResp>("Count", ca, cr);
 	    Deferred dfd = remote.callRemote();
 	    dfd.addCallback(new CountHandler());

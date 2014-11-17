@@ -118,7 +118,7 @@ public class Deferred {
         }
     }
 
-    public void addCallbacks(Callback callback, 
+    public void addCallbacks(Callback callback,
 			     Callback errback) {
         this.callbacks.add(new CallbackPair(callback, errback));
         if (calledYet) {

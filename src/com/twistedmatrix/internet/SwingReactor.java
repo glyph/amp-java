@@ -22,7 +22,7 @@ public class SwingReactor extends Reactor {
     public void interestOpsChanged() {
         wakeup();
     }
-    
+
     /**
      * Inject the application code into the Swing thread.
      */

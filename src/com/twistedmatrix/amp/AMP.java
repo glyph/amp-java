@@ -7,12 +7,21 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.ArrayList;
 
-
 import com.twistedmatrix.internet.*;
 import com.twistedmatrix.internet.Deferred.Failure;
 
 /**
  * The actual asynchronous messaging protocol, with command dispatch.
+ *
+ * AMP Integer  = Java Integer
+ * AMP String   = Java byte[]
+ * AMP Unicode  = Java String
+ * AMP Boolean  = Java Boolean
+ * AMP Float    = Java Double
+ * AMP Decimal  = Java BigDecimal NOT IMPLEMENTED YET
+ * AMP DateTime = Java Date       NOT IMPLEMENTED YET
+ * AMP ListOf   = Java List       NOT IMPLEMENTED YET
+ * AMP AmpList  = Java Map        NOT IMPLEMENTED YET
  */
 
 public class AMP extends AMPParser {
@@ -58,21 +67,21 @@ public class AMP extends AMPParser {
         private R        _response = null;
         private Deferred _deferred = null;
 	private AMPBox   _box      = null;
-	
+
         public RemoteCommand(String name, Object params, R response) {
 	    _box = new AMPBox();
 	    _asktag = AMP.this.nextTag();
             _response = response;
-	    
+
 	    _box.putAndEncode("_command", name);
 	    _box.putAndEncode("_ask", _asktag);
 	    _box.extractFrom(params);
         }
-	
+
 	public R getResponse() { return _response; }
 	public Deferred getDeferred() { return _deferred; }
 
-	public Deferred callRemote() { 
+	public Deferred callRemote() {
 	    AMP.this.sendBox(_box);
 	    AMP.this._remotes.put(_asktag, RemoteCommand.this);
             _deferred = new Deferred();

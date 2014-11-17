@@ -1,5 +1,8 @@
 package com.twistedmatrix.amp;
 
+import java.io.ByteArrayOutputStream;
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -7,10 +10,6 @@ import java.util.Map;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.HashSet;
-import java.io.ByteArrayOutputStream;
-
-import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Field;
 
 /**
  * small ordered key=>value mapping where the keys and values are both byte
@@ -144,7 +143,7 @@ public class AMPBox implements Map<byte[], byte[]> {
         try {
             return in.getBytes(encoding);
         } catch (UnsupportedEncodingException uee) {
-            throw new Error("JVMs are required to support encoding: " +encoding);
+            throw new Error("JVMs are required to support encoding: "+encoding);
         }
     }
 
@@ -152,7 +151,8 @@ public class AMPBox implements Map<byte[], byte[]> {
         try {
             return new String(in, knownEncoding);
         } catch (UnsupportedEncodingException uee) {
-            throw new Error("JVMs are required to support this encoding: " + knownEncoding);
+            throw new Error("JVMs are required to support this encoding: " +
+			    knownEncoding);
         }
     }
 
@@ -233,6 +233,7 @@ public class AMPBox implements Map<byte[], byte[]> {
       return new ErrorPrototype(code, description);
     }
 
+    /** Decode incoming data. */
     public Object getAndDecode(String key, Class t) {
         byte[] toDecode = this.get(key);
         if (null != toDecode) {
@@ -240,13 +241,22 @@ public class AMPBox implements Map<byte[], byte[]> {
                 return Integer.decode(asString(toDecode));
             } else if (t == String.class) {
                 return asString(toDecode, "UTF-8");
+            } else if ((t == double.class) || (t == Double.class)) {
+		String s = asString(toDecode);
+		if (s.equals("Inf"))
+		    return Double.POSITIVE_INFINITY;
+		else if (s.equals("-Inf"))
+		    return Double.NEGATIVE_INFINITY;
+		else if (s.equals("nan"))
+		    return Double.NaN;
+		else
+		    return Double.parseDouble(s);
             } else if ((t == boolean.class) || (t == Boolean.class)) {
                 String s = asString(toDecode);
-                if(s.equals("True")) {
+                if(s.equals("True"))
                     return Boolean.TRUE;
-                } else {
+                 else
                     return Boolean.FALSE;
-                }
             } else if (t == byte[].class) {
                 return toDecode;
             }
@@ -254,6 +264,7 @@ public class AMPBox implements Map<byte[], byte[]> {
         return null;
     }
 
+    /** Encode outgoing data. */
     public void putAndEncode(String key, Object o) {
         Class t = o.getClass();
         byte[] value = null;
@@ -261,6 +272,16 @@ public class AMPBox implements Map<byte[], byte[]> {
             value = asBytes(((Integer)o).toString());
         } else if (t == String.class) {
             value = asBytes((String) o, "UTF-8");
+        } else if (t == Double.class) {
+	    Double d = (Double) o;
+	    if (d.equals(Double.POSITIVE_INFINITY))
+		value = asBytes("Inf");
+	    else if (d.equals(Double.NEGATIVE_INFINITY))
+		value = asBytes("-Inf");
+	    else if (d.equals(Double.NaN))
+		value = asBytes("nan");
+	    else
+		value = asBytes(d.toString());
         } else if (t == Boolean.class) {
             if (((Boolean)o).booleanValue()) {
                 value = asBytes("True");
