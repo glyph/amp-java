@@ -1,6 +1,6 @@
-import java.util.List;
-import java.util.Arrays;
-import java.util.ArrayList;
+//import java.util.List;
+//import java.util.Arrays;
+//import java.util.ArrayList;
 
 import com.twistedmatrix.amp.*;
 import com.twistedmatrix.internet.*;
@@ -16,8 +16,8 @@ public class CountClient extends AMP {
 	_reactor = reactor;
 
 	/** Local method and arguments names that might be
-	 * called remotely are defined with addCommand */
-	addCommand("Count", "count", new ArrayList<String>(Arrays.asList("n")));
+	 * called remotely are defined with localCommand */
+	localCommand("Count", "count", new String[] {"n"});
     }
 
     /** Methods that might be called remotely must be public */

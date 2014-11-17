@@ -1,6 +1,7 @@
 package com.twistedmatrix.amp;
 
 import java.util.Map;
+import java.util.Arrays;
 import java.util.List;
 import java.util.HashMap;
 import java.util.ArrayList;
@@ -55,9 +56,9 @@ public class AMP extends AMPParser {
 	public List<String> getArguments() { return _arguments; }
     }
 
-    /** Associate a command with a method and its arguments. */
-    public void addCommand(String name, String method, List<String> arguments) {
-	commands.put(name, new Command(method, arguments));
+    /** Associate an incoming command with a local method and its arguments. */
+    public void localCommand(String name, String method, String[] params) {
+	commands.put(name, new Command(method, Arrays.asList(params)));
 
 	for (Forbidden f: Forbidden.values())
 	    if (name.equals(f.name()))
@@ -67,10 +68,10 @@ public class AMP extends AMPParser {
 	    if (method.equals(f.name()))
 		throw new Error ("Method name '" + method +
 				 "' is not allowed!");
-	for (String argument: arguments) {
+	for (String param: params) {
 	    for (Forbidden f: Forbidden.values())
-		if (argument.equals(f.name()))
-		    throw new Error ("Argument name '" + argument +
+		if (param.equals(f.name()))
+		    throw new Error ("Parameter name '" + param +
 				     "' is not allowed!");
 	}
     }

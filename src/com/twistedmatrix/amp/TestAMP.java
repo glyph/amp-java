@@ -188,7 +188,7 @@ public class TestAMP extends TestCase {
             AMPBox ab = new AMPBox();
             ab.put("_command", "ninjas");
             ab.put("_ask", "ninjas");
-	    a.addCommand("ninjas", "thingy", new ArrayList<String>());
+	    a.localCommand("ninjas", "thingy", new String[] {});
             a.ampBoxReceived(ab);
             assertEquals(1, rancommandcount);
         }
@@ -221,7 +221,7 @@ public class TestAMP extends TestCase {
 
             FakeTransport ft = new FakeTransport();
             DeferredReturner dr = new DeferredReturner();
-	    dr.addCommand("ninjas", "thingy", new ArrayList<String>());
+	    dr.localCommand("ninjas", "thingy", new String[] {});
             dr.makeConnection(ft);
 
             AMPBox ab = new AMPBox();
@@ -262,7 +262,7 @@ public class TestAMP extends TestCase {
             FakeTransport ft = new FakeTransport();
 
             SynchronousReturner sr = new SynchronousReturner();
-	    sr.addCommand("returnSynch", "returnSynch",new ArrayList<String>());
+	    sr.localCommand("returnSynch", "returnSynch", new String[] {});
             sr.makeConnection(ft);
 
             this.assertEquals(0, ft.alb.size());
@@ -295,8 +295,7 @@ public class TestAMP extends TestCase {
         public void testCommandArgumentParsing() throws Throwable {
             this.ali = new ArrayList<Integer>();
             AMP a = new WhatTheHell();
-	    List<String> args = new ArrayList<String>(Arrays.asList("a","b","c","d"));
-	    a.addCommand("addstuff", "thingy", args);
+	    a.localCommand("addstuff", "thingy",new String[] {"a","b","c","d"});
 
             AMPBox ab = new AMPBox();
             ab.put("_command", "addstuff");
