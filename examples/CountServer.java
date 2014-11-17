@@ -10,41 +10,17 @@ import com.twistedmatrix.internet.*;
 
 public class CountServer extends AMP {
     Reactor _reactor = null;
-
+    
     public CountServer(Reactor reactor) {
 	_reactor = reactor;
-
-	/** Local method and arguments names that might be
-	 * called remotely are defined with localCommand */
+	
+	/** Local methods with parameter names that might be called  
+	 * remotely are defined with localCommand. Parameters are:
+	 * Command name, local method, local parameters*/
 	localCommand("Count", "count", new String[] {"n"});
     }
-
-    /** Methods that might be called remotely must be public */
-    public CountResp count (int n) {
-	System.out.println("received: " + n + " ");
-
-	CountArgs ca = new CountArgs(n+1);
-	CountResp cr = new CountResp(true);
-
-	if (ca.getArg() < 11) {
-	    System.out.println("sending: " + ca.getArg());
-
-	    Deferred dfd = callRemote("Count", ca, cr);
-	    dfd.addCallback(new CountHandler());
-	    dfd.addErrback(new ErrHandler());
-	} else { _reactor.stop(); }
-
-	return cr;
-    }
-
-    public void connectionMade() {
-	System.out.println("connected");
-    }
-
-    public void connectionLost(Throwable reason) {
-	System.out.println("connection lost 1:" + reason);
-    }
-
+    
+    /** Class that handles the results of a command invoked remotely. */
     class CountHandler implements Deferred.Callback {
 	public Object callback(Object retval) {
 	    CountResp ret = (CountResp) retval;
@@ -54,6 +30,7 @@ public class CountServer extends AMP {
 	}
     }
 
+    /** Class that handles the problem if a remote command goes awry. */
     class ErrHandler implements Deferred.Callback {
 	public Object callback(Object retval) {
 	    Deferred.Failure err = (Deferred.Failure) retval;
@@ -87,19 +64,45 @@ public class CountServer extends AMP {
 	public int getArg() { return n; }
     }
 
+    /** Methods that might be called remotely must be public */
+    public CountResp count (int n) {
+	System.out.println("received: " + n + " ");
+
+	CountArgs ca = new CountArgs(n+1);
+	CountResp cr = new CountResp(true);
+
+	if (ca.getArg() < 11) {
+	    System.out.println("sending: " + ca.getArg());
+
+	    Deferred dfd = callRemote("Count", ca, cr);
+	    dfd.addCallback(new CountHandler());
+	    dfd.addErrback(new ErrHandler());
+	} else { _reactor.stop(); }
+
+	return cr;
+    }
+
+    @Override public void connectionMade() {
+	System.out.println("connected");
+    }
+
+    @Override public void connectionLost(Throwable reason) {
+	System.out.println("connection lost 1:" + reason);
+    }
+
     public static void main(String[] args) throws Throwable {
 	Reactor reactor = Reactor.get();
-	reactor.listenTCP(7113, new IServerFactory() {
+	reactor.listenTCP(7113, new ServerFactory() {
 		public IProtocol buildProtocol(Object addr) {
 		    System.out.println("building protocol");
 		    return new CountServer(reactor);
 		}
 
-		public void startedListening(IListeningPort port) {
+		@Override public void startedListening(IListeningPort port) {
 		    System.out.println("listening");
 		}
 
-		public void connectionLost(IListeningPort port,
+		@Override public void connectionLost(IListeningPort port,
 						 Throwable reason) {
 		    System.out.println("connection lost 2:" + reason);
 		}

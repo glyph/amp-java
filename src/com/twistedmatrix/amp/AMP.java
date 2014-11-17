@@ -56,6 +56,15 @@ public class AMP extends AMPParser {
 	public String[] getParams() { return _params; }
     }
 
+    /**
+     * Return a string unique for this connection, to uniquely identify
+     * subsequent requests.
+     */
+    private String nextTag() {
+        counter++;
+        return Integer.toHexString(counter);
+    }
+
     /** Associate an incoming command with a local method and its arguments. */
     public void localCommand(String name, String method, String[] params) {
 	commands.put(name, new Command(method, params));
@@ -74,15 +83,6 @@ public class AMP extends AMPParser {
 		    throw new Error ("Parameter name '" + param +
 				     "' is not allowed!");
 	}
-    }
-
-    /**
-     * Return a string unique for this connection, to uniquely identify
-     * subsequent requests.
-     */
-    private String nextTag() {
-        counter++;
-        return Integer.toHexString(counter);
     }
 
     /**
@@ -166,7 +166,7 @@ public class AMP extends AMPParser {
 				}
 			    }
 			}
-	    
+
 	    if (null == m) {
 		throw new Error ("No method defined to handle command '" +
 				 cmdprop + "'!");

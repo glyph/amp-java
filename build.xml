@@ -37,17 +37,6 @@
     </java>
   </target>
 
-  <!-- Run example code in AMP.java -->
-  <target name="runamp" depends="build" description="Runs compiled AMP">
-   <java failonerror="true" fork="true"
-	 classname="com.twistedmatrix.amp.AMP">
-      <classpath>
-        <path refid="project.class.path"/>
-      </classpath>
-      <jvmarg value="-Xmx256M"/>
-    </java>
-  </target>
-
   <!-- Run example code in Reactor.java -->
   <target name="runreact" depends="build" description="Runs compiled Reactor">
    <java failonerror="true" fork="true"

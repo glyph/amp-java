@@ -163,12 +163,12 @@ public class Reactor {
 
    /** Implements the bulk of the tcp server support */
     private class TCPPort extends TCPConnection implements IListeningPort {
-        private IServerFactory      serverFactory;
+        private ServerFactory       serverFactory;
         private ServerSocketChannel schannel;
         private ServerSocket        ssocket;
         private InetSocketAddress   addr;
 
-        TCPPort(int port, IServerFactory sf) throws Throwable {
+        TCPPort(int port, ServerFactory sf) throws Throwable {
 	    super(port);
             this.serverFactory = sf;
             this.addr = new InetSocketAddress(port);
@@ -228,10 +228,10 @@ public class Reactor {
 
     /** Implements the bulk of the tcp client support */
     private class TCPConnect extends TCPConnection implements IConnector {
-	private IClientFactory    clientFactory;
+	private ClientFactory     clientFactory;
         private InetSocketAddress addr;
 
-	TCPConnect(String host, int port, IClientFactory cf) throws Throwable {
+	TCPConnect(String host, int port, ClientFactory cf) throws Throwable {
 	    super(port);
 	    this.clientFactory = cf;
 	    this.addr = new InetSocketAddress(host, port);
@@ -417,12 +417,12 @@ public class Reactor {
     }
 
     public IListeningPort listenTCP(int portno,
-				    IServerFactory factory) throws Throwable {
+				    ServerFactory factory) throws Throwable {
         return new TCPPort(portno, factory);
     }
 
     public IConnector connectTCP(String addr, int portno,
-				 IClientFactory factory) throws Throwable {
+				 ClientFactory factory) throws Throwable {
 	return new TCPConnect(addr, portno, factory);
     }
 
@@ -452,7 +452,7 @@ public class Reactor {
         r.callLater(2, new ShowMessage("two!"));
         r.callLater(4, new ShowMessage("four!"));
 
-        r.listenTCP(1234, new IServerFactory() {
+        r.listenTCP(1234, new ServerFactory() {
                 public IProtocol buildProtocol(Object addr) {
                     return new Protocol() {
                         public void dataReceived(byte[] data) {
@@ -463,11 +463,11 @@ public class Reactor {
                         }
                     };
                 }
-		public void connectionLost(IListeningPort port,
+		@Override public void connectionLost(IListeningPort port,
 					   Throwable reason) {
 		    System.out.println("connection lost:" + reason);
 		}
-		public void startedListening(IListeningPort port) {
+		@Override public void startedListening(IListeningPort port) {
 		    System.out.println("listening");
 		}
             });

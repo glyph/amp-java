@@ -16,6 +16,16 @@ public abstract class AMPParser extends Int16StringReceiver {
 
     private AMPBox workingBox;
 
+    private static class ParseGatherer extends AMPParser {
+        ArrayList<AMPBox> alhm;
+        public ParseGatherer() {
+            alhm = new ArrayList<AMPBox>();
+        }
+        public void ampBoxReceived(AMPBox hm) {
+            alhm.add(hm);
+        }
+    }
+
     public void stringReceived(byte[] hunk) {
         switch(this.state) {
         case INIT:
@@ -42,16 +52,6 @@ public abstract class AMPParser extends Int16StringReceiver {
     }
 
     public abstract void ampBoxReceived(AMPBox hm);
-
-    private static class ParseGatherer extends AMPParser {
-        ArrayList<AMPBox> alhm;
-        public ParseGatherer() {
-            alhm = new ArrayList<AMPBox>();
-        }
-        public void ampBoxReceived(AMPBox hm) {
-            alhm.add(hm);
-        }
-    }
 
     public static List<AMPBox> parseData(byte[] data) {
         ParseGatherer pg = new ParseGatherer();
