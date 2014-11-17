@@ -301,16 +301,6 @@ public class Reactor {
         }
     }
 
-
-    /**
-     * Selectors were added or removed.
-     *
-     * In the normal case, this is simply a no-op.  However, in the case where
-     * the "run()" thread is different from the application code thread, this
-     * is a hook for the reactor to "wakeup" its selector.
-     */
-    private void interestOpsChanged() { }
-
     /**
      * Run all runnables scheduled to run before right now, and return the
      * timeout.  Negative timeout means "no timeout".
@@ -376,6 +366,15 @@ public class Reactor {
 	}
         return theReactor;
     }
+
+    /**
+     * Selectors were added or removed.
+     *
+     * In the normal case, this is simply a no-op.  However, in the case where
+     * the "run()" thread is different from the application code thread, this
+     * is a hook for the reactor to "wakeup" its selector.
+     */
+    public void interestOpsChanged() { }
 
     /**
      * Override this method in subclasses to run "iterate" in a different
