@@ -1,3 +1,5 @@
+import java.math.BigDecimal;
+
 import com.twistedmatrix.amp.*;
 import com.twistedmatrix.internet.*;
 
@@ -51,13 +53,14 @@ public class CountClient extends AMP {
     public class CountResp {
 	public Integer oki = 1;
 	public byte[] oks = "2".getBytes();
-	public String okde = "3";
+	public String oku = "3";
 	public Boolean okb = true;
 	public Double okdo = Double.valueOf("5.123");
+	public BigDecimal okde = new BigDecimal("0.75");
 
 	public String getResponse() {
-	    return "Int: " + oki + " String: " + oks + " Unicode: " + okde +
-		" Boolean: " + okb + " Double: " + okdo;
+	    return "Int: " + oki + " String: " + oks + " Unicode: " + oku +
+		" Boolean: " + okb + " Double: " + okdo + " Decimal: " + okde;
 	}
     }
 

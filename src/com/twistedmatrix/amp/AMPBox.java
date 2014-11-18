@@ -3,6 +3,8 @@ package com.twistedmatrix.amp;
 import java.io.ByteArrayOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -257,6 +259,14 @@ public class AMPBox implements Map<byte[], byte[]> {
                     return Boolean.TRUE;
                  else
                     return Boolean.FALSE;
+            } else if (t == BigDecimal.class) {
+		String s = asString(toDecode);
+		if (s.equals("Infinity") || s.equals("-Infinity") || 
+		    s.equals("NaN") || s.equals("-NaN") || 
+		    s.equals("sNaN") || s.equals("-sNaN"))
+		    throw new Error ("Value '" + s + "' is not supported!");
+		else
+		    return new BigDecimal(s);
             } else if (t == byte[].class) {
                 return toDecode;
             }
@@ -288,6 +298,8 @@ public class AMPBox implements Map<byte[], byte[]> {
             } else {
                 value = asBytes("False");
             }
+        } else if (t == BigDecimal.class) {
+	    value = asBytes(((BigDecimal)o).toString());
         } else if (t == byte[].class) {
             value = (byte[]) o;
         }

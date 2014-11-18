@@ -22,6 +22,8 @@ import com.twistedmatrix.internet.Deferred.Failure;
  * AMP DateTime = Java Date       NOT IMPLEMENTED YET
  * AMP ListOf   = Java List       NOT IMPLEMENTED YET
  * AMP AmpList  = Java Map        NOT IMPLEMENTED YET
+ *
+ * NOTE: Java BigDecimal does not support special values like Infinity or NaN
  */
 
 public class AMP extends AMPParser {
