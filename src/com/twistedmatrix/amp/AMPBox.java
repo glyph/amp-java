@@ -241,121 +241,6 @@ public class AMPBox implements Map<byte[], byte[]> {
       return new ErrorPrototype(code, description);
     }
 
-    /** Decode incoming data. */
-    public Object getAndDecode(String key, Class t) {
-        byte[] toDecode = this.get(key);
-        if (null != toDecode) {
-            if ((t == int.class) || (t == Integer.class)) {
-                return Integer.decode(asString(toDecode));
-            } else if (t == String.class) {
-                return asString(toDecode, "UTF-8");
-            } else if ((t == double.class) || (t == Double.class)) {
-		String s = asString(toDecode);
-		if (s.equals("Inf"))
-		    return Double.POSITIVE_INFINITY;
-		else if (s.equals("-Inf"))
-		    return Double.NEGATIVE_INFINITY;
-		else if (s.equals("nan"))
-		    return Double.NaN;
-		else
-		    return Double.parseDouble(s);
-            } else if ((t == boolean.class) || (t == Boolean.class)) {
-                String s = asString(toDecode);
-                if(s.equals("True"))
-                    return Boolean.TRUE;
-                 else
-                    return Boolean.FALSE;
-            } else if (t == BigDecimal.class) {
-		String s = asString(toDecode);
-		if (s.equals("Infinity") || s.equals("-Infinity") ||
-		    s.equals("NaN") || s.equals("-NaN") ||
-		    s.equals("sNaN") || s.equals("-sNaN"))
-		    throw new Error ("Value '" + s + "' is not supported!");
-		else
-		    return new BigDecimal(s);
-	    } else if (t == Calendar.class) {
-                String s = asString(toDecode);
-		Date date = new Date();
-		SimpleDateFormat dtf =
-		    new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
-		try {
-		    date = dtf.parse(s);
-		} catch (ParseException pe) {
-		    throw new Error ("Unable to parse date '" + s + "'!");
-		}
-
-		Calendar cal = Calendar.getInstance();
-		cal.setTime(date);
-
-		if (s.length() == 32) {
-		    String tzid = "UTC" + s.substring(26, 32);
-		    TimeZone tz = TimeZone.getTimeZone(tzid);
-		    cal.setTimeZone(tz);
-		}
-
-		return cal;
-	    } else if (t == byte[].class) {
-                return toDecode;
-            }
-        }
-        return null;
-    }
-
-    /** Encode outgoing data. */
-    public void putAndEncode(String key, Object o) {
-        Class t = o.getClass();
-        byte[] value = null;
-        if (t == Integer.class) {
-            value = asBytes(((Integer)o).toString());
-        } else if (t == String.class) {
-            value = asBytes((String) o, "UTF-8");
-        } else if (t == Double.class) {
-	    Double d = (Double) o;
-	    if (d.equals(Double.POSITIVE_INFINITY))
-		value = asBytes("Inf");
-	    else if (d.equals(Double.NEGATIVE_INFINITY))
-		value = asBytes("-Inf");
-	    else if (d.equals(Double.NaN))
-		value = asBytes("nan");
-	    else
-		value = asBytes(d.toString());
-        } else if (t == Boolean.class) {
-            if (((Boolean)o).booleanValue()) {
-                value = asBytes("True");
-            } else {
-                value = asBytes("False");
-            }
-        } else if (t == BigDecimal.class) {
-	    value = asBytes(((BigDecimal)o).toString());
-	} else if (t == Calendar.class || t == GregorianCalendar.class) {
-	    String dir = "+";
-	    Calendar cal = (Calendar) o;
-	    TimeZone tz = cal.getTimeZone();
-	    long tzhours = TimeUnit.MILLISECONDS.toHours(tz.getRawOffset());
-	    long tzmins = TimeUnit.MILLISECONDS.toMinutes(tz.getRawOffset())
-		- TimeUnit.HOURS.toMinutes(tzhours);
-	    if (tzhours < 0) {
-		dir = "-";
-		tzhours = 0 - tzhours;
-	    }
-
-	    String str = String.format("%04d-%02d-%02dT%02d:%02d:%02d.%03d000" +
-				       "%s%02d:%02d", cal.get(cal.YEAR),
-				       cal.get(cal.MONTH), 
-				       cal.get(cal.DAY_OF_MONTH),
-				       cal.get(cal.HOUR_OF_DAY),
-				       cal.get(cal.MINUTE), cal.get(cal.SECOND),
-				       cal.get(cal.MILLISECOND), 
-				       dir, tzhours, tzmins);
-	    value = asBytes(str);
-	} else if (t == byte[].class) {
-            value = (byte[]) o;
-        }
-        if (null != value) {
-            put(asBytes(key), value);
-        }
-    }
-
     public void extractFrom(Object o) {
         Class c = o.getClass();
         Field[] fields = c.getFields();
@@ -364,11 +249,11 @@ public class AMPBox implements Map<byte[], byte[]> {
                 putAndEncode(f.getName(), f.get(o));
             }
         } catch (IllegalAccessException iae) {
-	  iae.printStackTrace();
+	    iae.printStackTrace();
             /*
               This should be basically impossible to get; getFields should
               only give us public fields.
-             */
+	    */
         }
     }
 
@@ -385,4 +270,156 @@ public class AMPBox implements Map<byte[], byte[]> {
         baos.write(0);
         return baos.toByteArray();
     }
+
+    /** Decode incoming data. */
+    private Integer decodeInteger(byte[] toDecode) {
+	return Integer.decode(asString(toDecode));
+    }
+    private String decodeString(byte[] toDecode) {
+	return asString(toDecode, "UTF-8");
+    }
+    private Double decodeDouble(byte[] toDecode) {
+	String s = asString(toDecode);
+	if (s.equals("Inf"))
+	    return Double.POSITIVE_INFINITY;
+	else if (s.equals("-Inf"))
+	    return Double.NEGATIVE_INFINITY;
+	else if (s.equals("nan"))
+	    return Double.NaN;
+	else
+	    return Double.parseDouble(s);
+    }
+    private Boolean decodeBoolean(byte[] toDecode) {
+	String s = asString(toDecode);
+	if (s.equals("True"))
+	    return Boolean.TRUE;
+	else
+	    return Boolean.FALSE;
+    }
+    private BigDecimal decodeDecimal(byte[] toDecode) {
+	String s = asString(toDecode);
+	if (s.equals("Infinity") || s.equals("-Infinity") ||
+	    s.equals("NaN") || s.equals("-NaN") ||
+	    s.equals("sNaN") || s.equals("-sNaN"))
+	    throw new Error ("Value '" + s + "' is not supported!");
+	else
+	    return new BigDecimal(s);
+    }
+    private Calendar decodeCalendar(byte[] toDecode) {
+	String s = asString(toDecode);
+	Date date = new Date();
+	SimpleDateFormat dtf =
+	    new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
+	try {
+	    date = dtf.parse(s);
+	} catch (ParseException pe) {
+	    throw new Error ("Unable to parse date '" + s + "'!");
+	}
+
+	Calendar cal = Calendar.getInstance();
+	cal.setTime(date);
+
+	if (s.length() == 32) {
+	    String tzid = "UTC" + s.substring(26, 32);
+	    TimeZone tz = TimeZone.getTimeZone(tzid);
+	    cal.setTimeZone(tz);
+	}
+
+	return cal;
+    }
+
+    public Object getAndDecode(String key, Class t) {
+        byte[] toDecode = this.get(key);
+        if (null != toDecode) {
+            if (t == int.class || t == Integer.class) {
+                return decodeInteger(toDecode);
+            } else if (t == String.class) {
+                return decodeString(toDecode);
+            } else if (t == double.class || t == Double.class) {
+		return decodeDouble(toDecode);
+	    } else if (t == boolean.class || t == Boolean.class) {
+		return decodeBoolean(toDecode);
+            } else if (t == BigDecimal.class) {
+		return decodeDecimal(toDecode);
+	    } else if (t == Calendar.class || t == GregorianCalendar.class) {
+		return decodeCalendar(toDecode);
+	    } else if (t == byte[].class) {
+                return toDecode;
+            }
+        }
+        return null;
+    }
+
+    /** Encode outgoing data. */
+    private byte[] encodeInteger(Integer i) {
+	return asBytes(i.toString());
+    }
+    private byte[] encodeString(String s) {
+	return asBytes(s, "UTF-8");
+    }
+    private byte[] encodeDouble(Double d) {
+	if (d.equals(Double.POSITIVE_INFINITY))
+	    return asBytes("Inf");
+	else if (d.equals(Double.NEGATIVE_INFINITY))
+	    return asBytes("-Inf");
+	else if (d.equals(Double.NaN))
+	    return asBytes("nan");
+	else
+	    return asBytes(d.toString());
+    }
+    private byte[] encodeBoolean(Boolean b) {
+	if (b.booleanValue()) {
+	    return asBytes("True");
+	} else {
+	    return asBytes("False");
+	}
+    }
+    private byte[] encodeDecimal(BigDecimal d) {
+	return asBytes(d.toString());
+    }
+    private byte[] encodeCalendar(Calendar cal) {
+	String dir = "+";
+	TimeZone tz = cal.getTimeZone();
+	long tzhours = TimeUnit.MILLISECONDS.toHours(tz.getRawOffset());
+	long tzmins = TimeUnit.MILLISECONDS.toMinutes(tz.getRawOffset())
+	    - TimeUnit.HOURS.toMinutes(tzhours);
+	if (tzhours < 0) {
+	    dir = "-";
+	    tzhours = 0 - tzhours;
+	}
+
+	String str = String.format("%04d-%02d-%02dT%02d:%02d:%02d.%03d000" +
+				   "%s%02d:%02d", cal.get(cal.YEAR),
+				   cal.get(cal.MONTH),
+				   cal.get(cal.DAY_OF_MONTH),
+				   cal.get(cal.HOUR_OF_DAY),
+				   cal.get(cal.MINUTE), cal.get(cal.SECOND),
+				   cal.get(cal.MILLISECOND),
+				   dir, tzhours, tzmins);
+	return asBytes(str);
+    }
+
+    public void putAndEncode(String key, Object o) {
+        Class t = o.getClass();
+        byte[] value = null;
+        if (t == int.class || t == Integer.class) {
+            value = encodeInteger((Integer) o);
+        } else if (t == String.class) {
+            value = encodeString((String) o);
+        } else if (t == double.class || t == Double.class) {
+	    value = encodeDouble((Double) o);
+        } else if (t == boolean.class || t == Boolean.class) {
+	    value = encodeBoolean((Boolean) o);
+        } else if (t == BigDecimal.class) {
+	    value = encodeDecimal((BigDecimal) o);
+	} else if (t == Calendar.class || t == GregorianCalendar.class) {
+	    value = encodeCalendar((Calendar) o);
+	} else if (t == byte[].class) {
+            value = (byte[]) o;
+        }
+        if (null != value) {
+            put(asBytes(key), value);
+        }
+    }
+
 }
