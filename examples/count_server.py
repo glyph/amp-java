@@ -1,6 +1,7 @@
 # twistd -noy count_server.py
 
 from decimal import Decimal
+from datetime import datetime
 from twisted.python.log import err, msg
 from twisted.protocols import amp
 from twisted.protocols.amp import AMP
@@ -16,8 +17,9 @@ class Count(amp.Command):
                 ('oks', amp.String()),
                 ('oku', amp.Unicode()),
                 ('okb', amp.Boolean()),
-                ('okdo', amp.Float()),
-                ('okde', amp.Decimal())]
+                ('okf', amp.Float()),
+                ('okd', amp.Decimal()),
+                ('okt', amp.DateTime())]
 
 class Counter(amp.AMP):
     @Count.responder
@@ -34,9 +36,9 @@ class Counter(amp.AMP):
         else:
             reactor.stop()
 
-        return { 'oki': 1, 'oks': '2', 'oku': '3',
-                 'okb': True, 'okdo': 5.123,
-                 'okde': Decimal('3') / Decimal('4') }
+        return { 'oki': 1, 'oks': '2', 'oku': '3', 'okb': True,
+                 'okf': 5.123, 'okd': Decimal('3') / Decimal('4'),
+                 'okt': datetime.now(amp.utc) }
 
     def connectionLost(self, reason):
         print 'Client closed connection!'

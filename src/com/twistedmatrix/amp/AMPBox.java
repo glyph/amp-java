@@ -4,9 +4,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
-
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
+import java.util.TimeZone;
 import java.util.List;
 import java.util.Map;
 import java.util.Arrays;
@@ -261,13 +264,25 @@ public class AMPBox implements Map<byte[], byte[]> {
                     return Boolean.FALSE;
             } else if (t == BigDecimal.class) {
 		String s = asString(toDecode);
-		if (s.equals("Infinity") || s.equals("-Infinity") || 
-		    s.equals("NaN") || s.equals("-NaN") || 
+		if (s.equals("Infinity") || s.equals("-Infinity") ||
+		    s.equals("NaN") || s.equals("-NaN") ||
 		    s.equals("sNaN") || s.equals("-sNaN"))
 		    throw new Error ("Value '" + s + "' is not supported!");
 		else
 		    return new BigDecimal(s);
-            } else if (t == byte[].class) {
+	    } else if (t == Date.class) {
+		Date d = new Date();
+                String s = asString(toDecode);
+		SimpleDateFormat dtf =
+		    new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSX");
+		dtf.setTimeZone(TimeZone.getTimeZone("UTC"));
+		try {
+		    d = dtf.parse(s);
+		} catch (ParseException pe) {
+		    throw new Error ("Unable to parse date '" + s + "'!");
+		}
+		return d;
+	    } else if (t == byte[].class) {
                 return toDecode;
             }
         }
@@ -300,7 +315,14 @@ public class AMPBox implements Map<byte[], byte[]> {
             }
         } else if (t == BigDecimal.class) {
 	    value = asBytes(((BigDecimal)o).toString());
-        } else if (t == byte[].class) {
+	} else if (t == Date.class) {
+	    SimpleDateFormat dtf =
+		new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS000Z");
+	    dtf.setTimeZone(TimeZone.getTimeZone("UTC"));
+	    String dt = dtf.format((Date)o);
+	    String date = dt.substring(0,29) + ":" + dt.substring(29,31);
+	    value = asBytes(date);
+	} else if (t == byte[].class) {
             value = (byte[]) o;
         }
         if (null != value) {

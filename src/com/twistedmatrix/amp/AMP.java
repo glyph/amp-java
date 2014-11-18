@@ -18,12 +18,13 @@ import com.twistedmatrix.internet.Deferred.Failure;
  * AMP Unicode  = Java String
  * AMP Boolean  = Java Boolean
  * AMP Float    = Java Double
- * AMP Decimal  = Java BigDecimal NOT IMPLEMENTED YET
- * AMP DateTime = Java Date       NOT IMPLEMENTED YET
+ * AMP Decimal  = Java BigDecimal
+ * AMP DateTime = Java Date
  * AMP ListOf   = Java List       NOT IMPLEMENTED YET
  * AMP AmpList  = Java Map        NOT IMPLEMENTED YET
  *
- * NOTE: Java BigDecimal does not support special values like Infinity or NaN
+ * NOTE1: Java BigDecimal does not support special values like Infinity or NaN.
+ * NOTE2: Java Date only supports up to millisecond accuracy.
  */
 
 public class AMP extends AMPParser {
