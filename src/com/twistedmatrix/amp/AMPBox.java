@@ -7,6 +7,9 @@ import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.concurrent.TimeUnit;
 import java.util.Collection;
 import java.util.Date;
 import java.util.TimeZone;
@@ -270,18 +273,27 @@ public class AMPBox implements Map<byte[], byte[]> {
 		    throw new Error ("Value '" + s + "' is not supported!");
 		else
 		    return new BigDecimal(s);
-	    } else if (t == Date.class) {
-		Date d = new Date();
+	    } else if (t == Calendar.class) {
                 String s = asString(toDecode);
+		Date date = new Date();
 		SimpleDateFormat dtf =
-		    new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSX");
-		dtf.setTimeZone(TimeZone.getTimeZone("UTC"));
+		    new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
 		try {
-		    d = dtf.parse(s);
+		    date = dtf.parse(s);
 		} catch (ParseException pe) {
 		    throw new Error ("Unable to parse date '" + s + "'!");
 		}
-		return d;
+
+		Calendar cal = Calendar.getInstance();
+		cal.setTime(date);
+
+		if (s.length() == 32) {
+		    String tzid = "UTC" + s.substring(26, 32);
+		    TimeZone tz = TimeZone.getTimeZone(tzid);
+		    cal.setTimeZone(tz);
+		}
+
+		return cal;
 	    } else if (t == byte[].class) {
                 return toDecode;
             }
@@ -315,13 +327,27 @@ public class AMPBox implements Map<byte[], byte[]> {
             }
         } else if (t == BigDecimal.class) {
 	    value = asBytes(((BigDecimal)o).toString());
-	} else if (t == Date.class) {
-	    SimpleDateFormat dtf =
-		new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS000Z");
-	    dtf.setTimeZone(TimeZone.getTimeZone("UTC"));
-	    String dt = dtf.format((Date)o);
-	    String date = dt.substring(0,29) + ":" + dt.substring(29,31);
-	    value = asBytes(date);
+	} else if (t == Calendar.class || t == GregorianCalendar.class) {
+	    String dir = "+";
+	    Calendar cal = (Calendar) o;
+	    TimeZone tz = cal.getTimeZone();
+	    long tzhours = TimeUnit.MILLISECONDS.toHours(tz.getRawOffset());
+	    long tzmins = TimeUnit.MILLISECONDS.toMinutes(tz.getRawOffset())
+		- TimeUnit.HOURS.toMinutes(tzhours);
+	    if (tzhours < 0) {
+		dir = "-";
+		tzhours = 0 - tzhours;
+	    }
+
+	    String str = String.format("%04d-%02d-%02dT%02d:%02d:%02d.%03d000" +
+				       "%s%02d:%02d", cal.get(cal.YEAR),
+				       cal.get(cal.MONTH), 
+				       cal.get(cal.DAY_OF_MONTH),
+				       cal.get(cal.HOUR_OF_DAY),
+				       cal.get(cal.MINUTE), cal.get(cal.SECOND),
+				       cal.get(cal.MILLISECOND), 
+				       dir, tzhours, tzmins);
+	    value = asBytes(str);
 	} else if (t == byte[].class) {
             value = (byte[]) o;
         }

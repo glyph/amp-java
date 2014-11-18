@@ -1,5 +1,6 @@
 import java.math.BigDecimal;
-import java.util.Date;
+import java.util.Calendar;
+import java.util.TimeZone;
 
 import com.twistedmatrix.amp.*;
 import com.twistedmatrix.internet.*;
@@ -58,7 +59,9 @@ public class CountClient extends AMP {
 	public Boolean okb = true;
 	public Double okf = Double.valueOf("5.123");
 	public BigDecimal okd = new BigDecimal("0.75");
-	public Date okt = new Date();
+	public Calendar okt = Calendar.getInstance();
+
+	public CountResp() { okt.setTimeZone(TimeZone.getTimeZone("UTC")); }
 
 	public String getResponse() {
 	    return "Int: " + oki + " String: " + oks +
