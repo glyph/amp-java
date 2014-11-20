@@ -19,7 +19,8 @@ class Count(amp.Command):
                 ('okb', amp.Boolean()),
                 ('okf', amp.Float()),
                 ('okd', amp.Decimal()),
-                ('okt', amp.DateTime())]
+                ('okt', amp.DateTime()),
+                ('okl', amp.ListOf(amp.ListOf(amp.String())))]
 
 class Counter(amp.AMP):
     @Count.responder
@@ -38,7 +39,9 @@ class Counter(amp.AMP):
 
         return { 'oki': 1, 'oks': '2', 'oku': '3', 'okb': True,
                  'okf': 5.123, 'okd': Decimal('3') / Decimal('4'),
-                 'okt': datetime.now(amp.utc) }
+                 'okt': datetime.now(amp.utc),
+                 'okl': [['str01','str02'], ['str03','str04','str05']],
+             }
 
     def connectionLost(self, reason):
         print 'Client closed connection!'

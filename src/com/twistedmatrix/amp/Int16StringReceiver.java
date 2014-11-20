@@ -31,7 +31,7 @@ public abstract class Int16StringReceiver extends Protocol {
         }
     }
 
-    static int toInt(byte b) {
+    public static int toInt(byte b) {
         // why doesn't java have unsigned bytes again?  at least python can
         // _emulate_ this easily.
         int i;

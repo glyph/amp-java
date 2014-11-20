@@ -4,6 +4,8 @@ if __name__ == '__main__':
     import count_client
     raise SystemExit(count_client.main())
 
+from decimal import Decimal
+from datetime import datetime
 from sys import stdout, exit
 from twisted.python.log import startLogging, err, msg
 from twisted.protocols import amp
@@ -13,7 +15,14 @@ from twisted.internet.endpoints import TCP4ClientEndpoint
 
 class Count(amp.Command):
     arguments = [('n', amp.Integer())]
-    response = [('ok', amp.Boolean())]
+    response = [('oki', amp.Integer()),
+                ('oks', amp.String()),
+                ('oku', amp.Unicode()),
+                ('okb', amp.Boolean()),
+                ('okf', amp.Float()),
+                ('okd', amp.Decimal()),
+                ('okt', amp.DateTime()),
+                ('okl', amp.ListOf(amp.ListOf(amp.String())))]
 
 class Counter(amp.AMP):
     @Count.responder
@@ -30,10 +39,11 @@ class Counter(amp.AMP):
         else:
             reactor.stop()
 
-        return {'ok': True}
-
-    def connectionLost(self, reason):
-        print 'Count limit reached, exiting...'
+        return { 'oki': 1, 'oks': '2', 'oku': '3', 'okb': True,
+                 'okf': 5.123, 'okd': Decimal('3') / Decimal('4'),
+                 'okt': datetime.now(amp.utc),
+                 'okl': [['str01','str02'], ['str03','str04','str05']],
+             }
 
 def connect():
     endpoint = TCP4ClientEndpoint(reactor, '127.0.0.1', 7113)

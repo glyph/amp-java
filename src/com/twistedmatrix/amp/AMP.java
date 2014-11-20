@@ -1,5 +1,6 @@
 package com.twistedmatrix.amp;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
@@ -13,15 +14,15 @@ import com.twistedmatrix.internet.Deferred.Failure;
 /**
  * The actual asynchronous messaging protocol, with command dispatch.
  *
- * AMP Integer  = Java Integer
- * AMP String   = Java byte[]
+ * AMP Integer  = Java Integer or int
+ * AMP String   = Java ByteBuffer or byte[]
  * AMP Unicode  = Java String
- * AMP Boolean  = Java Boolean
- * AMP Float    = Java Double
+ * AMP Boolean  = Java Boolean or boolean
+ * AMP Float    = Java Double or double
  * AMP Decimal  = Java BigDecimal
  * AMP DateTime = Java Calendar
- * AMP ListOf   = Java List       NOT IMPLEMENTED YET
- * AMP AmpList  = Java Map        NOT IMPLEMENTED YET
+ * AMP ListOf   = Java ArrayList  NOT IMPLEMENTED YET
+ * AMP AmpList  = Java HashMap    NOT IMPLEMENTED YET
  *
  * NOTE1: Java BigDecimal does not support special values like Infinity or NaN.
  * NOTE2: Java Calendar only supports up to millisecond accuracy.
@@ -31,28 +32,12 @@ public class AMP extends AMPParser {
     private int _counter;
     private Map<String, LocalCommand> _locals;
     private Map<String, RemoteCommand> _remotes;
-    private enum Forbidden { _answer, _command, _ask, _error,
-			     _error_code, _error_description };
+    private enum Forbidden { _answer, _command, _ask, _error, _name,
+			     _error_code, _error_description, _params };
 
     public AMP() {
 	_locals = new HashMap<String, LocalCommand>();
 	_remotes = new HashMap<String, RemoteCommand>();
-    }
-
-    /** Class to define methods and their paramters. The method specified
-     * must be public.
-     */
-    private class LocalCommand {
-	private String       _method;
-	private String[]     _params;
-
-	public LocalCommand(String method, String[] params) {
-	    _method = method;
-	    _params = params;
-	}
-
-	public String   getMethod() { return _method; }
-	public String[] getParams() { return _params; }
     }
 
     /**
@@ -64,7 +49,7 @@ public class AMP extends AMPParser {
         return Integer.toHexString(_counter);
     }
 
-    /** Class for tracking the commands sent and their responses. */
+    /** Class for tracking the remote commands and their responses. */
     public class RemoteCommand<R> {
 	private String   _asktag   = "";
         private R        _response = null;
@@ -93,18 +78,18 @@ public class AMP extends AMPParser {
     }
 
     /** Associate an incoming command with a local method and its arguments. */
-    public void localCommand(String name, String method, String[] params) {
-	_locals.put(name, new LocalCommand(method, params));
+    public void localCommand(String name, LocalCommand command) {
+	_locals.put(name, command);
 
 	for (Forbidden f: Forbidden.values())
 	    if (name.equals(f.name()))
-		throw new Error ("LocalCommand name '" + name +
+		throw new Error ("Command name '" + name +
 				 "' is not allowed!");
 	for (Forbidden f: Forbidden.values())
-	    if (method.equals(f.name()))
-		throw new Error ("Method name '" + method +
+	    if (command.getName().equals(f.name()))
+		throw new Error ("Method name '" + command.getName() +
 				 "' is not allowed!");
-	for (String param: params) {
+	for (String param: command.getParams()) {
 	    for (Forbidden f: Forbidden.values())
 		if (param.equals(f.name()))
 		    throw new Error ("Parameter name '" + param +
@@ -154,25 +139,33 @@ public class AMP extends AMPParser {
             rc.getDeferred().errback(new Failure(error.getThrowable()));
         } else if ("_command".equals(msgtype)) {
 	    Method m = null;
-	    Object[] parameters = null;
+	    Object[] mparams = null;
+
 	    for (String cmd: _locals.keySet())
 		if (cmd.equals(cmdprop))
-		    for (Method p: this.getClass().getMethods())
-			if (p.getName().equals(_locals.get(cmd).getMethod())) {
+		    for (Method p: this.getClass().getMethods()) {
+			if (p.getName().equals(_locals.get(cmd).getName())) {
 			    // The remote command name matches a local one.
+			    LocalCommand local = _locals.get(cmd);
 			    Class[] ptypes = p.getParameterTypes();
-			    parameters = new Object[ptypes.length];
-			    String[] lparams = _locals.get(cmd).getParams();
-			    if (ptypes.length == lparams.length) {
+			    mparams = new Object[ptypes.length];
+			    String[] pparams = local.getParams();
+			    if (ptypes.length == pparams.length) {
 				// The parameters match too, we have a winner!
 				m = p;
-				for (int i = 0; i < ptypes.length; i++) {
-				    Class thisType = ptypes[i];
-				    parameters[i] = box.getAndDecode(lparams[i],
-								     thisType);
-				}
+				Field[] mtypes = new Field[ptypes.length];
+				Field[] fields = local.getClass().getFields();
+
+				for (int i = 0; i < ptypes.length; i++)
+				    for (Field f: fields)
+					if (f.getName().equals(pparams[i]))
+					    mtypes[i] = f;
+
+				for (int i = 0; i < ptypes.length; i++)
+				    mparams[i] = box.getAndDecode(mtypes[i]);
 			    }
 			}
+		    }
 
 	    if (null == m) {
 		throw new Error ("No method defined to handle command '" +
@@ -180,7 +173,7 @@ public class AMP extends AMPParser {
 	    } else {
 		// We have method and an array of parameters, time to call it.
 		try {
-		    Object result = m.invoke(this, parameters);
+		    Object result = m.invoke(this, mparams);
 		    if (result == null) {
 			AMPBox emptyResponse = new AMPBox();
 			emptyResponse.put("_answer", box.get("_ask"));

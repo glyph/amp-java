@@ -1,6 +1,9 @@
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.util.Calendar;
 import java.util.TimeZone;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.twistedmatrix.amp.*;
 import com.twistedmatrix.internet.*;
@@ -15,16 +18,14 @@ public class CountClient extends AMP {
     public CountClient(Reactor reactor) {
 	_reactor = reactor;
 
-	/** Local methods with parameter names that might be called
-	 * remotely are defined with localCommand. Parameters are:
-	 * Command name, local method, local parameters */
-	localCommand("Count", "count", new String[] {"n"});
+	/** Define a local method that might be called remotely. */
+	localCommand("Count", new CountCommand());
     }
 
     /** Class that handles the results of a command invoked remotely.
      * The callback method is called with a populated response class.
      * Returned object is handed to chained callback if it exists. */
-    class CountHandler implements Deferred.Callback<CountResp> {
+    class RespHandler implements Deferred.Callback<CountResp> {
 	public Object callback(CountResp retval) {
 
 	    System.out.println("response: " + retval.getResponse());
@@ -38,10 +39,8 @@ public class CountClient extends AMP {
     class ErrHandler implements Deferred.Callback<Deferred.Failure> {
 	public Object callback(Deferred.Failure err) {
 
-	    System.out.println("error: " + err.get());
-
 	    //Class tc = err.trap(Exception.class);
-
+	    System.out.println("error: " + err.get());
 	    System.exit(0);
 
 	    return null;
@@ -49,52 +48,79 @@ public class CountClient extends AMP {
     }
 
     /** Command response class and all its variables must be public.
+     * In this example the client and server have the same response.
      * Response class data is ignored when calling remote.
      * Upon success the populated response is returned via the Callback.
      * Upon failure the error is returned via the ErrBack. */
     public class CountResp {
 	public Integer oki = 1;
-	public byte[] oks = "2".getBytes();
+	public ByteBuffer oks = ByteBuffer.wrap("2".getBytes());
 	public String oku = "3";
 	public Boolean okb = true;
 	public Double okf = Double.valueOf("5.123");
 	public BigDecimal okd = new BigDecimal("0.75");
 	public Calendar okt = Calendar.getInstance();
+	public List<List<String>> okl = new ArrayList<List<String>>();
 
-	public CountResp() { okt.setTimeZone(TimeZone.getTimeZone("UTC")); }
+	public CountResp() {
+	    okt.setTimeZone(TimeZone.getTimeZone("UTC"));
+	    List<String> al1 = new ArrayList<String>();
+	    List<String> al2 = new ArrayList<String>();
+	    al1.add("str01");
+	    al1.add("str02");
+	    al2.add("str03");
+	    al2.add("str04");
+	    al2.add("str05");
+
+	    okl.add(al1);
+	    okl.add(al2);
+	}
 
 	public String getResponse() {
-	    return "Int: " + oki + " String: " + oks +
+	    String str =  "Int: " + oki + " String: " + oks +
 		" Unicode: " + oku + " Boolean: " + okb +
 		" Double: " + okf + " Decimal: " + okd +
-		" DateTime: " + okt;
+		" DateTime: " + okt + " ListOf: ";
+	    for (List<String> ls: okl)
+		for (String li: ls)
+		    str = str + " " + li;
+
+	    return str;
 	}
     }
 
-    /** Command arguments class and all its variables must be public.
+    /** Remote command arguments class and all its variables must be public.
      * This class contains the parameters when invoking the remote command.
-     * Command arguments class variables must match remote command arguments. */
-    public class CountArgs {
+     * Class variables must be public and match remote command arguments. */
+    public class RemoteParams {
 	public int n = 0;
 
-	public CountArgs(int i) { n = i; }
+	public RemoteParams(int i) { n = i; }
 	public int getArg() { return n; }
+    }
+
+    /** This class contains the name and parameters of a local command.
+     * It defines the name, the parameter names in order, and parameter classes.
+     * Class variables must be public and match local command arguments. */
+    public class CountCommand extends LocalCommand {
+	public int n;
+	public CountCommand() { super("count", new String[] {"n"} ); }
     }
 
     /** Methods that might be called remotely must be public */
     public CountResp count (int n) {
-	System.out.println("received: " + n + " ");
+	System.out.println("received: " + n);
 
-	CountArgs ca = new CountArgs(n+1);
+	RemoteParams rp = new RemoteParams(n+1);
 	CountResp cr = new CountResp();
 
-	if (ca.getArg() < 10) {
-	    System.out.println("sending: " + ca.getArg());
+	if (rp.getArg() < 10) {
+	    System.out.println("sending: " + rp.getArg());
 
 	    AMP.RemoteCommand<CountResp> remote =
-		new RemoteCommand<CountResp>("Count", ca, cr);
+		new RemoteCommand<CountResp>("Count", rp, cr);
 	    Deferred dfd = remote.callRemote();
-	    dfd.addCallback(new CountHandler());
+	    dfd.addCallback(new RespHandler());
 	    dfd.addErrback(new ErrHandler());
 	} else { _reactor.stop(); }
 
@@ -106,13 +132,13 @@ public class CountClient extends AMP {
     @Override public void connectionMade() {
 	System.out.println("connected");
 
-	CountArgs ca = new CountArgs(1);
+	RemoteParams rp = new RemoteParams(1);
 	CountResp cr = new CountResp();
 
 	AMP.RemoteCommand<CountResp> remote =
-	    new RemoteCommand<CountResp>("Count", ca, cr);
+	    new RemoteCommand<CountResp>("Count", rp, cr);
 	Deferred dfd = remote.callRemote();
-	dfd.addCallback(new CountHandler());
+	dfd.addCallback(new RespHandler());
 	dfd.addErrback(new ErrHandler());
     }
 
