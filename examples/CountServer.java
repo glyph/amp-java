@@ -40,7 +40,8 @@ public class CountServer extends AMP {
 	public Object callback(Deferred.Failure err) {
 
 	    //Class tc = err.trap(Exception.class);
-	    System.out.println("error: " + err.get());
+	    //System.out.println("error: " + err.get());
+	    err.get().printStackTrace();
 	    System.exit(0);
 
 	    return null;
@@ -60,10 +61,15 @@ public class CountServer extends AMP {
 	public Double okf = Double.valueOf("5.123");
 	public BigDecimal okd = new BigDecimal("0.75");
 	public Calendar okt = Calendar.getInstance();
-	public List<List<String>> okl = new ArrayList<List<String>>();
+	public List<Integer> okl1 = new ArrayList<Integer>();
+	public List<List<String>> okl2 = new ArrayList<List<String>>();
+	public List<CountItem> okla = new ArrayList<CountItem>();
 
 	public CountResp() {
 	    okt.setTimeZone(TimeZone.getTimeZone("UTC"));
+	    okl1.add(new Integer(3));
+	    okl1.add(new Integer(6));
+
 	    List<String> al1 = new ArrayList<String>();
 	    List<String> al2 = new ArrayList<String>();
 	    al1.add("str01");
@@ -71,19 +77,27 @@ public class CountServer extends AMP {
 	    al2.add("str03");
 	    al2.add("str04");
 	    al2.add("str05");
+	    okl2.add(al1);
+	    okl2.add(al2);
 
-	    okl.add(al1);
-	    okl.add(al2);
+	    okla.add(new CountItem(2, "hello"));
+	    okla.add(new CountItem(4, "goodbye"));
 	}
 
 	public String getResponse() {
 	    String str =  "Int: " + oki + " String: " + oks +
 		" Unicode: " + oku + " Boolean: " + okb +
 		" Double: " + okf + " Decimal: " + okd +
-		" DateTime: " + okt + " ListOf: ";
-	    for (List<String> ls: okl)
+		" DateTime: " + okt + " ListOf1: ";
+	    for (Integer i: okl1)
+		str = str + " " + i;
+	    str = str + " ListOf 2: ";
+	    for (List<String> ls: okl2)
 		for (String li: ls)
 		    str = str + " " + li;
+	    str = str + " AmpList: ";
+	    for (CountItem ci: okla)
+		str = str + ci + " ";
 
 	    return str;
 	}

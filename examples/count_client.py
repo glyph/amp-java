@@ -22,7 +22,11 @@ class Count(amp.Command):
                 ('okf', amp.Float()),
                 ('okd', amp.Decimal()),
                 ('okt', amp.DateTime()),
-                ('okl', amp.ListOf(amp.ListOf(amp.String())))]
+                ('okl1', amp.ListOf(amp.Integer())),
+                ('okl2', amp.ListOf(amp.ListOf(amp.String()))),
+                ('okla', amp.AmpList([('a', amp.Integer()),
+                                      ('b', amp.Unicode())]))]
+
 
 class Counter(amp.AMP):
     @Count.responder
@@ -42,7 +46,9 @@ class Counter(amp.AMP):
         return { 'oki': 1, 'oks': '2', 'oku': '3', 'okb': True,
                  'okf': 5.123, 'okd': Decimal('3') / Decimal('4'),
                  'okt': datetime.now(amp.utc),
-                 'okl': [['str01','str02'], ['str03','str04','str05']],
+                 'okl1': [4, 5, 6],
+                 'okl2': [['str01','str02'], ['str03','str04','str05']],
+                 'okla': [{'a': 7, 'b': u'hello'}, {'a': 9, 'b': u'goodbye'}]
              }
 
 def connect():

@@ -8,6 +8,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.lang.reflect.ParameterizedType;
 
+import java.lang.reflect.Constructor;
+
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.text.ParseException;
@@ -20,6 +22,7 @@ import java.util.Date;
 import java.util.TimeZone;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.HashSet;
@@ -268,33 +271,35 @@ public class AMPBox implements Map<byte[], byte[]> {
         return baos.toByteArray();
     }
 
-    private List<Class> getListSubTypes(Field fld) {
-	List<Class> subtypes = new ArrayList<Class>();
+    private List<Class> getListTypes(Field fld) {
+	List<Class> listVals = new ArrayList<Class>();
 	if (fld != null &&
 	    (fld.getType() == List.class || fld.getType() == ArrayList.class)) {
 	    ParameterizedType pt = (ParameterizedType) fld.getGenericType();
 	    for (Type type: pt.getActualTypeArguments()) {
-		if (type instanceof Class) // One dimensional list of type
-		    subtypes.add((Class) type);
-		else { // Multidimensional list
-		    subtypes.add((new ArrayList<Object>()).getClass());
+		if (type instanceof Class) {
+		    // Single dimensional ListOf
+		    listVals.add((Class) type);
+		} else {
+		    // Multidimensional ListOf
+		    //listVals.add((new ArrayList<Object>()).getClass());
 		    for (String sub: type.toString().split("<"))
 			if (sub.indexOf("List") > 5)
-			    subtypes.add((new ArrayList<Object>()).getClass());
+			    listVals.add((new ArrayList<Object>()).getClass());
 			else try {
 				String cn = sub.substring(0, sub.indexOf(">"));
-				subtypes.add(Class.forName(cn));
+				listVals.add(Class.forName(cn));
 			    } catch (ClassNotFoundException cnf) {
 				throw new Error ("Class not found: '"+sub+"'");
 			    }
 		}
 	    }
 	}
-	return subtypes;
+	return listVals;
     }
 
     /** Decode incoming data. */
-    private Object decodeObject(byte[] toDecode, Class t, List<Class> lst) {
+    private Object decodeObject(byte[] toDecode, Class t, List<Class> lvals) {
         if (null != toDecode) {
             if (t == int.class || t == Integer.class) {
 		return Integer.decode(asString(toDecode));
@@ -346,29 +351,85 @@ public class AMPBox implements Map<byte[], byte[]> {
 		}
 
 		return cal;
+	    } else if (t.getSuperclass() == AmpItem.class) {
+		List<Object> result = new ArrayList<Object>();
+		Map<String,Class> params = new HashMap<String,Class>();
+		Field[] fields = t.getFields();
+		for (Field f: fields) params.put(f.getName(), f.getType());
+
+		while (toDecode.length > 1) {
+		    int tdlen=(Int16StringReceiver.toInt(toDecode[0])*256) +
+			Int16StringReceiver.toInt(toDecode[1]);
+		    if (tdlen > 0) {
+			Map<String,Object> values =new HashMap<String,Object>();
+			for (String param: params.keySet()) {
+			    byte[] hunk = new byte[tdlen];
+			    System.arraycopy(toDecode, 2, hunk, 0, tdlen);
+			    byte[] oldbuf = toDecode;
+			    int newlen = oldbuf.length - tdlen - 2;
+			    toDecode = new byte[newlen];
+			    System.arraycopy(oldbuf,tdlen+2,toDecode,0,newlen);
+			    String key = (String) decodeObject(hunk,
+							       String.class,
+							       lvals);
+
+			    tdlen=(Int16StringReceiver.toInt(toDecode[0])*256) +
+				Int16StringReceiver.toInt(toDecode[1]);
+			    hunk = new byte[tdlen];
+			    System.arraycopy(toDecode, 2, hunk, 0, tdlen);
+			    oldbuf = toDecode;
+			    newlen = oldbuf.length - tdlen - 2;
+			    toDecode = new byte[newlen];
+			    System.arraycopy(oldbuf,tdlen+2,toDecode,0,newlen);
+			    Object value = decodeObject(hunk,params.get(key),
+							lvals);
+			    values.put(key, value);
+			}
+
+			try {
+			    Object obj = t.newInstance();
+
+			    for (Field f: fields)
+				f.set(obj, values.get(f.getName()));
+			    result.add(obj);
+			} catch (Exception e) { e.printStackTrace(); }
+		    } else {
+			byte[] oldbuf = toDecode;
+			int newlen = oldbuf.length - 2;
+			toDecode = new byte[newlen];
+			System.arraycopy(oldbuf,2,toDecode,0,newlen);
+		    }
+		}
+		return result;
 	    } else if (t == List.class || t == ArrayList.class) {
 		List<Object> result = new ArrayList<Object>();
-		if (lst == null || lst.size() == 0) {
-		    throw new Error ("No subtypes given for List!");
+		if (lvals == null || lvals.size() == 0) {
+		    throw new Error ("No listVals given for list!");
 		} else {
-		    Class type = lst.get(lst.size() - 1);
-		    while (toDecode.length > 1) {
-			int tdlen=(Int16StringReceiver.toInt(toDecode[0])*256) +
-			    Int16StringReceiver.toInt(toDecode[1]);
-			byte[] hunk = new byte[tdlen];
-			System.arraycopy(toDecode, 2, hunk, 0, tdlen);
+		    Class type = lvals.get(lvals.size() - 1);
+		    if (lvals.size() == 1 &&
+			type.getSuperclass() == AmpItem.class) {
+			return decodeObject(toDecode,type,lvals);
+		    } else {
+			while (toDecode.length > 1) {
+			    int tdlen=(Int16StringReceiver.toInt(toDecode[0])*
+				       256) +
+				Int16StringReceiver.toInt(toDecode[1]);
+			    byte[] hunk = new byte[tdlen];
+			    System.arraycopy(toDecode, 2, hunk, 0, tdlen);
+			    byte[] oldbuf = toDecode;
+			    int newlen = oldbuf.length - tdlen - 2;
+			    toDecode = new byte[newlen];
+			    System.arraycopy(oldbuf,tdlen+2,toDecode,0,newlen);
 
-			byte[] oldbuf = toDecode;
-			int newlen = oldbuf.length - tdlen - 2;
-			toDecode = new byte[newlen];
-			System.arraycopy(oldbuf, tdlen + 2, toDecode,0,newlen);
-
-			if (lst.size() <= 2) {
-			    result.add(decodeObject(hunk, type, lst));
-			} else {
-			    List<Class> sub = new ArrayList<Class>();
-			    sub.addAll(lst);
-			    result.add(decodeObject(hunk, sub.remove(0), sub));
+			    if (lvals.size() == 1) {
+				result.add(decodeObject(hunk,type,lvals));
+			    } else {
+				List<Class> sub = new ArrayList<Class>();
+				sub.addAll(lvals);
+				result.add(decodeObject(hunk, sub.remove(0),
+							sub));
+			    }
 			}
 		    }
 		}
@@ -384,12 +445,9 @@ public class AMPBox implements Map<byte[], byte[]> {
     }
 
     public Object getAndDecode(Field fld) {
-	if (null == fld) {
-	    return null;
-	} else {
-	    List<Class> subtypes = getListSubTypes(fld);
-	    return decodeObject(this.get(fld.getName()),fld.getType(),subtypes);
-	}
+	List<Class> listVals = getListTypes(fld);
+	return decodeObject(this.get(fld.getName()), fld.getType(),
+			    getListTypes(fld));
     }
 
     public Object getAndDecode(String key, Class cls) {
@@ -397,9 +455,8 @@ public class AMPBox implements Map<byte[], byte[]> {
     }
 
     /** Encode outgoing data. */
-    private byte[] encodeObject(Object o, List<Class> lst) {
+    private byte[] encodeObject(Class t, Object o, List<Class> lvals){
 	byte[] value = null;
-        Class t = o.getClass();
         if (t == int.class || t == Integer.class) {
             value = asBytes(((Integer) o).toString());
         } else if (t == String.class) {
@@ -444,22 +501,54 @@ public class AMPBox implements Map<byte[], byte[]> {
 				       dir, tzhours, tzmins);
 
 	    value = asBytes(str);
-	} else if (t == List.class || t == ArrayList.class) {
-	    if (lst == null || lst.size() == 0) {
-		throw new Error ("No subtypes given for List!");
-	    } else {
-		Class type = lst.get(lst.size() - 1);
-		ByteArrayOutputStream stream = new ByteArrayOutputStream();
-		for (Object li: (List) o) {
-		    List<Class> sub = new ArrayList<Class>();
-		    sub.addAll(lst);
-		    sub.remove(0);
-		    byte[] bp = encodeObject(li, sub);
-		    stream.write(bp.length / 0x100); // DIV
-		    stream.write(bp.length % 0x100); // MOD
-		    stream.write(bp, 0, bp.length);
+	} else if (t.getSuperclass() == AmpItem.class) {
+	    Field[] fields = t.getFields();
+	    ByteArrayOutputStream stream = new ByteArrayOutputStream();
+	    for (Object li: (List) o) {
+		for (Field f: fields) {
+		    byte[] bp = encodeObject(String.class, f.getName(), null);
+		    if (bp != null) {
+			stream.write(bp.length / 0x100); // DIV
+			stream.write(bp.length % 0x100); // MOD
+			stream.write(bp, 0, bp.length);
+		    }
+
+		    try {
+			bp = encodeObject(f.getType(), f.get(li), null);
+			if (bp != null) {
+			    stream.write(bp.length / 0x100); // DIV
+			    stream.write(bp.length % 0x100); // MOD
+			    stream.write(bp, 0, bp.length);
+			}
+		    } catch (Exception e) { e.printStackTrace(); }
 		}
-		value = stream.toByteArray();
+	    }
+	    stream.write(0);
+	    stream.write(0);
+
+	    value = stream.toByteArray();
+	} else if (t == List.class || t == ArrayList.class) {
+	    if (lvals == null || lvals.size() == 0) {
+		throw new Error ("No listVals given for List!");
+	    } else {
+		Class type = lvals.get(lvals.size() - 1);
+		if (lvals.size() == 1 && type.getSuperclass() == AmpItem.class){
+		    value = encodeObject(type, o, lvals);
+		} else {
+		    ByteArrayOutputStream stream = new ByteArrayOutputStream();
+		    for (Object li: (List) o) {
+			List<Class> sub = new ArrayList<Class>();
+			sub.addAll(lvals);
+			sub.remove(0);
+			byte[] bp = encodeObject(li.getClass(), li, sub);
+			if (bp != null) {
+			    stream.write(bp.length / 0x100); // DIV
+			    stream.write(bp.length % 0x100); // MOD
+			    stream.write(bp, 0, bp.length);
+			}
+		    }
+		    value = stream.toByteArray();
+		}
 	    }
 	} else if (t == ByteBuffer.class ||
 		   t.getSuperclass() == ByteBuffer.class) {
@@ -475,8 +564,8 @@ public class AMPBox implements Map<byte[], byte[]> {
 
     public void putAndEncode(Field fld, Object o) {
 	try {
-	    List<Class> subtypes = getListSubTypes(fld);
-	    byte[] value = encodeObject(fld.get(o), subtypes);
+	    byte[] value = encodeObject(fld.getType(), fld.get(o),
+					getListTypes(fld));
 	    if (null != value) {
 		put(asBytes(fld.getName()), value);
 	    }
@@ -490,7 +579,7 @@ public class AMPBox implements Map<byte[], byte[]> {
     }
 
     public void putAndEncode(String key, Object o) {
-	byte[] value = encodeObject(o, null);
+	byte[] value = encodeObject(o.getClass(), o, null);
         if (null != value) {
             put(asBytes(key), value);
         }
