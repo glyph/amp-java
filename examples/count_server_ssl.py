@@ -1,11 +1,11 @@
-# python count_server.py
+# python count_server_ssl.py
 
-from sys import stdout, exit
+from OpenSSL import SSL
 from decimal import Decimal
 from datetime import datetime
-from twisted.internet import reactor
+from sys import stdout, exit
+from twisted.internet import reactor, ssl
 from twisted.internet.protocol import Factory
-from twisted.internet.endpoints import TCP4ServerEndpoint
 from twisted.protocols import amp
 from twisted.python.log import startLogging, err, msg
 
@@ -49,16 +49,11 @@ class Counter(amp.AMP):
     def connectionLost(self, reason):
         print 'Client closed connection!'
 
-def main():
+if __name__ == '__main__':
     startLogging(stdout)
-
     factory = Factory()
     factory.protocol = Counter
 
-    endpoint = TCP4ServerEndpoint(reactor, 7113)
-    endpoint.listen(factory)
+    reactor.listenSSL(7113, factory, ssl.DefaultOpenSSLContextFactory(
+        'localhost.key', 'localhost.crt'))
     reactor.run()
-
-if __name__ == '__main__':
-    import count_server
-    raise SystemExit(count_server.main())

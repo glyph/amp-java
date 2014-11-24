@@ -1,11 +1,11 @@
-# python count_server.py
+# python count_client_ssl.py
 
-from sys import stdout, exit
+from OpenSSL import SSL
 from decimal import Decimal
 from datetime import datetime
-from twisted.internet import reactor
-from twisted.internet.protocol import Factory
-from twisted.internet.endpoints import TCP4ServerEndpoint
+from sys import stdout, exit
+from twisted.internet import reactor, ssl
+from twisted.internet.protocol import ClientFactory
 from twisted.protocols import amp
 from twisted.python.log import startLogging, err, msg
 
@@ -29,7 +29,7 @@ class Counter(amp.AMP):
         print 'received:', n
         n += 1
 
-        maxcount = 11
+        maxcount = 10
         if (n < maxcount):
             print 'sending:', n
             d = self.callRemote(Count, n=n)
@@ -46,19 +46,22 @@ class Counter(amp.AMP):
                  'okla': [{'a': 7, 'b': u'hello'}, {'a': 9, 'b': u'goodbye'}]
              }
 
-    def connectionLost(self, reason):
-        print 'Client closed connection!'
+    def connectionMade(self):
+        self.callRemote(Count, n=1)
 
-def main():
-    startLogging(stdout)
+class CountFactory(ClientFactory):
+    protocol = Counter
 
-    factory = Factory()
-    factory.protocol = Counter
+    def clientConnectionFailed(self, connector, reason):
+        print "Connection failed - goodbye!"
+        reactor.stop()
 
-    endpoint = TCP4ServerEndpoint(reactor, 7113)
-    endpoint.listen(factory)
-    reactor.run()
+    def clientConnectionLost(self, connector, reason):
+        print "Connection lost - goodbye!"
 
 if __name__ == '__main__':
-    import count_server
-    raise SystemExit(count_server.main())
+    startLogging(stdout)
+    factory = CountFactory()
+
+    reactor.connectSSL('localhost', 7113, factory, ssl.ClientContextFactory())
+    reactor.run()

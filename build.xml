@@ -121,6 +121,7 @@
     <delete dir="${tmp.dir}" failonerror="false" />
     <delete file="${basedir}/examples/twistd.pid" failonerror="false" />
     <delete file="${basedir}/examples/count_client.pyc" failonerror="false" />
+    <delete file="${basedir}/examples/count_server.pyc" failonerror="false" />
     <delete file="${basedir}/amp-java.jar" failonerror="false" />
   </target>
 

@@ -1,17 +1,13 @@
 # python count_client.py
 
-if __name__ == '__main__':
-    import count_client
-    raise SystemExit(count_client.main())
-
+from sys import stdout, exit
 from decimal import Decimal
 from datetime import datetime
-from sys import stdout, exit
-from twisted.python.log import startLogging, err, msg
-from twisted.protocols import amp
 from twisted.internet import reactor
 from twisted.internet.protocol import Factory
 from twisted.internet.endpoints import TCP4ClientEndpoint
+from twisted.protocols import amp
+from twisted.python.log import startLogging, err, msg
 
 class Count(amp.Command):
     arguments = [('n', amp.Integer())]
@@ -26,7 +22,6 @@ class Count(amp.Command):
                 ('okl2', amp.ListOf(amp.ListOf(amp.String()))),
                 ('okla', amp.AmpList([('a', amp.Integer()),
                                       ('b', amp.Unicode())]))]
-
 
 class Counter(amp.AMP):
     @Count.responder
@@ -43,7 +38,7 @@ class Counter(amp.AMP):
         else:
             reactor.stop()
 
-        return { 'oki': 1, 'oks': '2', 'oku': '3', 'okb': True,
+        return { 'oki': 1, 'oks': '2', 'oku': u'3', 'okb': True,
                  'okf': 5.123, 'okd': Decimal('3') / Decimal('4'),
                  'okt': datetime.now(amp.utc),
                  'okl1': [4, 5, 6],
@@ -66,3 +61,7 @@ def main():
     d.addErrback(err, 'call failed')
 
     reactor.run()
+
+if __name__ == '__main__':
+    import count_client
+    raise SystemExit(count_client.main())
