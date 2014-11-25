@@ -12,23 +12,27 @@ import com.twistedmatrix.internet.*;
 import com.twistedmatrix.internet.Deferred.Failure;
 
 /**
- * The actual asynchronous messaging protocol, with command dispatch.
- *
- * AMP Integer  = java.lang.Integer or int
- * AMP String   = java.nio.ByteBuffer or byte[]
- * AMP Unicode  = java.lang.String
- * AMP Boolean  = java.lang.Boolean or boolean
- * AMP Float    = java.lang.Double or double
- * AMP Decimal  = java.math.BigDecimal
- * AMP DateTime = java.util.Calendar
- * AMP ListOf   = java.util.ArrayList
- * AMP AmpList  = java.util.ArrayList<extends com.twistedmatrix.amp.AmpItem>
- *
- * NOTE1: Java BigDecimal does not support special values like Infinity or NaN.
- * NOTE2: Java Calendar only supports up to millisecond accuracy.
- * NOTE3: Classes that extend AmpItem must not be nested in other classes.
- * NOTE4: Classes sent or recieved must only contain data types listed above.
- */
+ * The actual asynchronous messaging protocol, with command dispatch. 
+ * Extend this class to actually exchanges messages. Outgoing commands 
+ * are submitted by building an {@link RemoteCommand} and invoking it's 
+ * callRemote method. Incoming commands are handled by building a 
+ * {@link LocalCommand} object and using the localCommand method to 
+ * register it in the constructor. </BR></BR> Supported data types:<UL>
+ *<LI>AMP Integer  = java.lang.Integer or int</LI>
+ *<LI>AMP String   = java.nio.ByteBuffer or byte[]</LI>
+ *<LI>AMP Unicode  = java.lang.String</LI>
+ *<LI>AMP Boolean  = java.lang.Boolean or boolean</LI>
+ *<LI>AMP Float    = java.lang.Double or double</LI>
+ *<LI>AMP Decimal  = java.math.BigDecimal</LI>
+ *<LI>AMP DateTime = java.util.Calendar</LI>
+ *<LI>AMP ListOf   = java.util.ArrayList</LI>
+ *<LI>AMP AmpList  = java.util.ArrayList&lt;extends {@link AmpItem}&gt;</LI>
+ *</UL></BR>Notes:<UL>
+ *<LI>Java BigDecimal does not support special values like NaN or Infinity.</LI>
+ *<LI>Java Calendar only supports up to millisecond accuracy.</LI>
+ *<LI>Classes that extend AmpItem must not be nested in other classes.</LI>
+ *<LI>Classes sent or received must only contain data types listed above.</LI>
+ *</UL>*/
 
 public class AMP extends AMPParser {
     private int _counter;
@@ -51,13 +55,22 @@ public class AMP extends AMPParser {
         return Integer.toHexString(_counter);
     }
 
-    /** Class for tracking the remote commands and their responses. */
+    /** Class for invoking remote commands and managing their responses. 
+     * For both the remote parameters and local response objects, the public
+     * variables must consist of the types supported by {@link AMP}. */
     public class RemoteCommand<R> {
 	private String   _asktag   = "";
         private R        _response = null;
         private Deferred _deferred = null;
 	private AMPBox   _box      = null;
 
+	/** The heavy lifting for invoking a remote command happens here.
+	 *  @param name The name of the remote command to invoke.
+	 *  @param params A populated object whose values will be passed as
+	 *         arguments to the remote command.
+	 *  @param response The object that will be populated with the 
+	 *         remote command response 
+	 */
         public RemoteCommand(String name, Object params, R response) {
 	    _box = new AMPBox();
 	    _asktag = AMP.this.nextTag();
@@ -68,9 +81,13 @@ public class AMP extends AMPParser {
 	    _box.extractFrom(params);
         }
 
-	public R getResponse() { return _response; }
-	public Deferred getDeferred() { return _deferred; }
+	private R getResponse() { return _response; }
+	private Deferred getDeferred() { return _deferred; }
 
+	/** Actually invoke the remote command. 
+	 * @return A {@link Deferred}, to which you use addCallback and 
+	 * addErrback to add handlers for success and failure respectively.
+	 */
 	public Deferred callRemote() {
 	    AMP.this.sendBox(_box);
 	    AMP.this._remotes.put(_asktag, RemoteCommand.this);
@@ -78,41 +95,12 @@ public class AMP extends AMPParser {
 	    return _deferred;
 	}
     }
-
-    /** Associate an incoming command with a local method and its arguments. */
-    public void localCommand(String name, LocalCommand command) {
-	_locals.put(name, command);
-
-	for (Forbidden f: Forbidden.values())
-	    if (name.equals(f.name()))
-		throw new Error ("Command name '" + name +
-				 "' is not allowed!");
-	for (Forbidden f: Forbidden.values())
-	    if (command.getName().equals(f.name()))
-		throw new Error ("Method name '" + command.getName() +
-				 "' is not allowed!");
-	for (String param: command.getParams()) {
-	    for (Forbidden f: Forbidden.values())
-		if (param.equals(f.name()))
-		    throw new Error ("Parameter name '" + param +
-				     "' is not allowed!");
-	}
-    }
-
+    
     /**
-     * Serialize an AMPBox to the current transport for this AMP connection.
-     */
-    public void sendBox(AMPBox ab) {
-        ITransport t = this.transport();
-        if (null == t) {
-            return;
-        }
-        t.write(ab.encode());
-    }
-
-    /**
-     * A single message was received from the network.  Determine its type and
-     * dispatch it to the appropriate handler.
+     * An AMPBox was received from the network.
+     * Determine its type and dispatch it to the appropriate handler.
+     * This method is rarely, if ever, invoked directly or overridden.
+     *  @param box The AMPBox to received.
      */
     public void ampBoxReceived(AMPBox box) {
         String msgtype = null;
@@ -137,8 +125,7 @@ public class AMP extends AMPParser {
             rc.getDeferred().callback(rc.getResponse());
         } else if ("_error".equals(msgtype)) {
             RemoteCommand rc = this._remotes.get(cmdprop);
-            ErrorPrototype error = box.fillError();
-            rc.getDeferred().errback(new Failure(error.getThrowable()));
+            rc.getDeferred().errback(new Failure(box.fillError()));
         } else if ("_command".equals(msgtype)) {
 	    Method m = null;
 	    Object[] mparams = null;
@@ -208,5 +195,43 @@ public class AMP extends AMPParser {
 		}
             }
         }
+    }
+
+    /** Associate an incoming command with a local method and its arguments.
+     * This is the main way to handle messaged received from the network.
+     * @param name The name of the command to be invoked remotely.
+     * @param command The command to invoke locally.
+     */
+    public void localCommand(String name, LocalCommand command) {
+	_locals.put(name, command);
+
+	for (Forbidden f: Forbidden.values())
+	    if (name.equals(f.name()))
+		throw new Error ("Command name '" + name +
+				 "' is not allowed!");
+	for (Forbidden f: Forbidden.values())
+	    if (command.getName().equals(f.name()))
+		throw new Error ("Method name '" + command.getName() +
+				 "' is not allowed!");
+	for (String param: command.getParams()) {
+	    for (Forbidden f: Forbidden.values())
+		if (param.equals(f.name()))
+		    throw new Error ("Parameter name '" + param +
+				     "' is not allowed!");
+	}
+    }
+
+    /**
+     * Send an AMPBox to the network.
+     * Serialize an AMPBox to the current transport for this AMP connection.
+     * This method is rarely, if ever, invoked directly or overridden.
+     *  @param box The AMPBox to send.
+     */
+    public void sendBox(AMPBox box) {
+        ITransport t = this.transport();
+        if (null == t) {
+            return;
+        }
+        t.write(box.encode());
     }
 }

@@ -138,7 +138,7 @@ public class CountClient extends AMP {
 	    Deferred dfd = remote.callRemote();
 	    dfd.addCallback(new RespHandler());
 	    dfd.addErrback(new ErrHandler());
-	} else { 
+	} else {
 	    _reactor.stop();
 	    System.exit(0);
 	}
@@ -168,6 +168,13 @@ public class CountClient extends AMP {
 
     public static void main(String[] args) throws Throwable {
 	Reactor reactor = Reactor.get();
+
+	reactor.callLater(1, new Runnable() {
+		public void run () {
+		    System.out.println("This is a delayed message.");
+		}
+	    });
+
 	reactor.connectTCP("127.0.0.1", 7113, new ClientFactory() {
 		public IProtocol buildProtocol(Object addr) {
 		    System.out.println("building protocol");

@@ -37,17 +37,6 @@
     </java>
   </target>
 
-  <!-- Run example code in Reactor.java -->
-  <target name="runreact" depends="build" description="Runs compiled Reactor">
-   <java failonerror="true" fork="true"
-	 classname="com.twistedmatrix.internet.Reactor">
-      <classpath>
-        <path refid="project.class.path"/>
-      </classpath>
-      <jvmarg value="-Xmx256M"/>
-    </java>
-  </target>
-
   <!-- Compile the example source code without debugging information -->
   <target name="buildexamples" depends="build" description="Compiles bytecode for examples">
     <mkdir dir="${tmp.dir}"/>

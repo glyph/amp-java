@@ -1,8 +1,15 @@
 package com.twistedmatrix.internet;
 
-abstract public class ClientFactory implements IFactory {
+/** A Protocol factory for clients. */
+public abstract class ClientFactory implements IFactory {
+
+    /** Called when a connection has been started. */
     public void startedConnecting(IConnector connector) {};
+
+    /** Called when a connection has failed to connect. */
     public void clientConnectionLost(IConnector connector,Throwable reason) {};
-    abstract public void clientConnectionFailed(IConnector connector, 
+
+    /** Called when an established connection is lost. */
+    public abstract void clientConnectionFailed(IConnector connector, 
 						Throwable reason);
 }
