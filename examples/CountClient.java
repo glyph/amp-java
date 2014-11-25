@@ -138,7 +138,10 @@ public class CountClient extends AMP {
 	    Deferred dfd = remote.callRemote();
 	    dfd.addCallback(new RespHandler());
 	    dfd.addErrback(new ErrHandler());
-	} else { _reactor.stop(); }
+	} else { 
+	    _reactor.stop();
+	    System.exit(0);
+	}
 
 	return cr;
     }
@@ -151,6 +154,7 @@ public class CountClient extends AMP {
 	RemoteParams rp = new RemoteParams(1);
 	CountResp cr = new CountResp();
 
+	System.out.println("sending: 1");
 	AMP.RemoteCommand<CountResp> remote =
 	    new RemoteCommand<CountResp>("Count", rp, cr);
 	Deferred dfd = remote.callRemote();
