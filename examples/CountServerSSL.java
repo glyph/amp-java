@@ -5,12 +5,10 @@ import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.X509TrustManager;
 import java.security.KeyStore;
 import java.security.SecureRandom;
@@ -20,13 +18,13 @@ import com.twistedmatrix.amp.*;
 import com.twistedmatrix.internet.*;
 
 /** To compile: ant buildexamples
-    To run: ant runexclient
+ * To run: ant runexserver
  */
 
-public class CountClientSSL extends AMP {
+public class CountServerSSL extends AMP {
     Reactor _reactor = null;
 
-    public CountClientSSL(Reactor reactor) {
+    public CountServerSSL(Reactor reactor) {
 	_reactor = reactor;
 
 	/** Define a local method that might be called remotely. */
@@ -139,7 +137,7 @@ public class CountClientSSL extends AMP {
 	RemoteParams rp = new RemoteParams(n+1);
 	CountResp cr = new CountResp();
 
-	if (rp.getArg() < 10) {
+	if (rp.getArg() < 11) {
 	    System.out.println("sending: " + rp.getArg());
 
 	    AMP.RemoteCommand<CountResp> remote =
@@ -155,59 +153,16 @@ public class CountClientSSL extends AMP {
 	return cr;
     }
 
-    /** The example the client and server use the same method and classes to
-     * exchange data, but the client initiates this process upon connection */
     @Override public void connectionMade() {
 	System.out.println("connected");
-
-	RemoteParams rp = new RemoteParams(1);
-	CountResp cr = new CountResp();
-
-	System.out.println("sending: 1");
-	AMP.RemoteCommand<CountResp> remote =
-	    new RemoteCommand<CountResp>("Count", rp, cr);
-	Deferred dfd = remote.callRemote();
-	dfd.addCallback(new RespHandler());
-	dfd.addErrback(new ErrHandler());
     }
 
     @Override public void connectionLost(Throwable reason) {
 	System.out.println("connection lost 1:" + reason);
     }
 
-    /** This context validates the server certificate, which is GOOD. */
-    private static SSLContext getSecureContext() {
-	// java -Djavax.net.debug=SSL
-	SSLContext ctx = null;
-	try {
-	    ctx = SSLContext.getDefault();
-	} catch (Exception e) { e.printStackTrace(); }
-
-	return ctx;
-    }
-
-    /** This context does NOT validate the server certificate, which is BAD. */
-    private static SSLContext getInsecureContext() {
-	TrustManager[] trustAll = new TrustManager[]{ new X509TrustManager() {
-		public X509Certificate[] getAcceptedIssuers() {
-		    return new X509Certificate[0];
-		}
-		public void checkClientTrusted(X509Certificate[] certs,
-					       String authType){ }
-		public void checkServerTrusted(X509Certificate[] certs,
-					       String authType){ }
-	    }};
-
-	SSLContext ctx = null;
-	try {
-	    ctx = SSLContext.getInstance("TLS");
-	    ctx.init(null, trustAll, new SecureRandom());
-	} catch (Exception e) { e.printStackTrace(); }
-
-	return ctx;
-    }
-
-    /** This context loads the server certificate, which is GOOD ENOUGH. */
+    /** This context loads the server certificate, which is GOOD ENOUGH.
+     * See CountClientSSL.java for other options. */
     private static SSLContext getCustomContext() {
 	// The alias/password for localhost.ks is importkey/password
 
@@ -217,44 +172,31 @@ public class CountClientSSL extends AMP {
 	    ks.load(new FileInputStream("examples/localhost.ks"),
 		    "importkey".toCharArray());
 	    ctx = SSLContext.getInstance("TLS");
-	    TrustManagerFactory tmf =TrustManagerFactory.getInstance("SunX509");
-	    tmf.init(ks);
-	    ctx.init(null, tmf.getTrustManagers(), null);
+	    KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+	    kmf.init(ks, "password".toCharArray());
+	    ctx.init(kmf.getKeyManagers(), null, null);
 	} catch (Exception e) { e.printStackTrace(); }
 
 	return ctx;
     }
 
-    /** To convert a standard self signed certificate to a java keystore:
-     * openssl pkcs8 -topk8 -nocrypt -in localhost.key -inform PEM -out localhost.key.der -outform DER
-     * openssl x509 -in localhost.crt -inform PEM -out localhost.crt.der -outform DER
-     * java ImportKey localhost.key.der localhost.crt.der
-     * keytool -keypasswd -alias importkey -keystore localhost.ks
-     */
-
     public static void main(String[] args) throws Throwable {
 	Reactor reactor = Reactor.get();
-	reactor.connectSSL("127.0.0.1", 7113, getCustomContext(),
-			   new ClientFactory() {
+	reactor.listenSSL(7113, getCustomContext(), new ServerFactory() {
 		public IProtocol buildProtocol(Object addr) {
 		    System.out.println("building protocol");
-		    return new CountClientSSL(reactor);
+		    return new CountServerSSL(reactor);
 		}
 
-		public void clientConnectionFailed(IConnector connector,
-						   Throwable reason) {
-		    System.out.println("connectiion failed:" + reason);
-		    System.exit(0);
+		@Override public void startedListening(IListeningPort port) {
+		    System.out.println("listening");
 		}
 
-		@Override public void startedConnecting(IConnector connector) {
-		    System.out.println("connecting");
-		}
-
-		@Override public void clientConnectionLost(IConnector connector,
-							   Throwable reason) {
+		@Override public void connectionLost(IListeningPort port,
+						 Throwable reason) {
 		    System.out.println("connection lost 2:" + reason);
 		}
+
 	    });
 
 	reactor.run();

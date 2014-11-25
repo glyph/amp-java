@@ -122,7 +122,11 @@ public class Reactor {
             }
 
             if (failed) {
-                // this means the connection is closed, what???
+		if (this.engine != null) {
+		    this.engine.closeOutbound();
+		    while (this.step()) { continue; }
+		}
+
                 channel.close();
                 _key.cancel();
                 interestOpsChanged();
@@ -254,6 +258,7 @@ public class Reactor {
 	    switch (unwrapResult.getHandshakeStatus()) {
 	    case FINISHED:
 		this.protocol.makeConnection(this);
+
 		/*
 		SSLSession session = engine.getSession();
 		try {
@@ -317,12 +322,12 @@ public class Reactor {
 	abstract public void loseConnection(Throwable reason);
     }
 
-   /** Implements the bulk of the tcp server support */
+    /** Implements the bulk of the tcp server support */
     private class TCPPort extends TCPConnection implements IListeningPort {
-        private ServerFactory       serverFactory;
-        private ServerSocketChannel schannel;
-        private ServerSocket        ssocket;
-        private InetSocketAddress   addr;
+        private   ServerFactory       serverFactory;
+        protected ServerSocketChannel schannel;
+        private   ServerSocket        ssocket;
+        private   InetSocketAddress   addr;
 
         TCPPort(int port, ServerFactory sf) throws Throwable {
 	    super(port);
@@ -363,12 +368,12 @@ public class Reactor {
 		channel.configureBlocking(false);
 		socket = newchannel.socket();
 		socket.setTcpNoDelay(true);
-		this.protocol.makeConnection(this);
 
 		_key = channel.register(_selector,SelectionKey.OP_READ,this);
 		interestOpsChanged();
 
 		super.startReading();
+		this.protocol.makeConnection(this);
 	    }
         }
 
@@ -377,11 +382,49 @@ public class Reactor {
         }
 
         public void loseConnection(Throwable reason) {
+	    if (this.engine != null) {
+		this.engine.closeOutbound();
+		while (this.step()) { continue; }
+	    }
+
             this.disconnecting = true;
 	    this.protocol.connectionLost(reason);
 	    //this.serverFactory.loseConnection(this, reason);
         }
      }
+
+    /** Implements the SSL server support */
+    private class SSLPort extends TCPPort {
+	private SSLContext _ctx;
+
+        SSLPort(int port, SSLContext ctx, ServerFactory sf) throws Throwable {
+	    super(port, sf);
+	    _ctx = ctx;
+	}
+
+	@Override public void doAccept() throws Throwable {
+            SocketChannel newchannel = schannel.accept();
+            if (null == newchannel) {
+		throw new Throwable("Unable to accept connection!");
+	    } else {
+		channel = newchannel;
+		channel.configureBlocking(false);
+		socket = newchannel.socket();
+		socket.setTcpNoDelay(true);
+
+		_key = channel.register(_selector,SelectionKey.OP_READ,this);
+		interestOpsChanged();
+
+		super.startReading();
+		this.engine = _ctx.createSSLEngine();
+		this.engine.setUseClientMode(false);
+		this.engine.beginHandshake();
+		this.wrap(); // Initiate the handshake
+		while (this.step()) { continue; } // Complete the handshake
+		this.protocol.makeConnection(this);
+	    }
+        }
+    }
 
     /** Implements the bulk of the tcp client support */
     private class TCPConnect extends TCPConnection implements IConnector {
@@ -605,6 +648,11 @@ public class Reactor {
     public IListeningPort listenTCP(int portno,
 				    ServerFactory factory) throws Throwable {
         return new TCPPort(portno, factory);
+    }
+
+    public IListeningPort listenSSL(int portno, SSLContext ctx,
+				    ServerFactory factory) throws Throwable {
+        return new SSLPort(portno, ctx, factory);
     }
 
     public IConnector connectTCP(String addr, int portno,
