@@ -23,8 +23,10 @@ import javax.net.ssl.SSLEngineResult;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 
-/** The reactor is an event loop based on {@link SelectionKey} which drives applications and provides APIs for networking, threading, dispatching events, and more.
- * New application code should prefer to pass and accept the reactor as a 
+/** The reactor is an event loop based on {@link SelectionKey} which drives
+ * applications and provides APIs for networking, threading, dispatching
+ * events, and more.
+ * New application code should prefer to pass and accept the reactor as a
  * parameter where it is needed, which will simplify unit testing and may make
  * it easier to one day support multiple reactors.
 */
@@ -173,7 +175,7 @@ public class Reactor {
             if (0 == this.outbufs.size()) {
                 if (this.disconnecting) {
                     this.channel.close();
-		    this.protocol.connectionLost(new Throwable("Disconnected"));
+		  this.protocol.connectionLost(new Throwable("Disconnected"));
 		}
             } else {
                 this.channel.write(ByteBuffer.wrap(this.outbufs.remove(0)));
@@ -217,7 +219,7 @@ public class Reactor {
 		throw new IllegalStateException("failed to wrap");
 
 	    case CLOSED:
-		this.protocol.connectionLost(new Throwable("Disconnected"));
+		//this.protocol.connectionLost(new Throwable("Disconnected"));
 		return false;
 	    }
 
@@ -381,13 +383,13 @@ public class Reactor {
 	public void connectionLost(Throwable reason) {
 	    this.serverFactory.connectionLost(this, reason);
         }
-	
+
         public void loseConnection(Throwable reason) {
 	    if (this.engine != null) {
 		this.engine.closeOutbound();
 		while (this.step()) { continue; }
 	    }
-	    
+
             this.disconnecting = true;
             _key.interestOps(_key.interestOps() & ~SelectionKey.OP_ACCEPT);
             _key.cancel();
@@ -587,7 +589,7 @@ public class Reactor {
         long now = System.currentTimeMillis();
         return runUntilCurrent(now);
     }
-    
+
     /** Runs something later. */
     public void callLater(double secondsLater, Runnable runme) {
         long millisLater = (long) (secondsLater * 1000.0);
@@ -597,26 +599,26 @@ public class Reactor {
             interestOpsChanged();
         }
     }
-    
+
     /** Connect a client protocol factory to a remote SSL server.  */
     public IConnector connectSSL(String addr, int portno, SSLContext ctx,
 				 ClientFactory factory) throws Throwable {
 	return new SSLConnect(addr, portno, ctx, factory);
     }
-    
+
     /** Connect a client protocol factory to a remote TCP server. */
     public IConnector connectTCP(String addr, int portno,
 				 ClientFactory factory) throws Throwable {
 	return new TCPConnect(addr, portno, factory);
     }
-    
+
     /**
      * Override this method in subclasses to iterate in a different thread.
      */
     public void doIteration() throws Throwable {
         iterate();
     }
-    
+
     /**
      * Convienence method to get and instance of a Reactor.
      */
@@ -638,31 +640,32 @@ public class Reactor {
      * is a hook for the reactor to "wakeup" its selector.
      */
     public void interestOpsChanged() { }
-    
+
     /** Connects a SSL server protocol factory to a numeric TCP port. */
     public IListeningPort listenSSL(int portno, SSLContext ctx,
 				    ServerFactory factory) throws Throwable {
         return new SSLPort(portno, ctx, factory);
     }
-    
+
     /** Connects a TCP server protocol factory to a numeric TCP port. */
     public IListeningPort listenTCP(int portno,
 				    ServerFactory factory) throws Throwable {
         return new TCPPort(portno, factory);
     }
-    
+
     /** Convenience method to print to STDOUT. */
     public static void msg (String m) {
         System.out.println(m);
     }
-    
-    /** Fire 'startup' System Events, move the reactor to the 'running' state, then run the main loop until it is stopped with stop().  */
+
+    /** Fire 'startup' System Events, move the reactor to the 'running' state,
+     * then run the main loop until it is stopped with stop().  */
     public void run() throws Throwable {
         _running = true;
         while (_running) {
             int selected;
             long timeout = processTimedEvents();
-	    
+
             if (timeout >= 0) {
                 _selector.select(timeout);
             } else {
@@ -672,13 +675,15 @@ public class Reactor {
         }
 	_connection.connectionLost(new Throwable("Shutdown"));
     }
-    
-    /** Fire 'shutdown' System Events, which will move the reactor to the 'stopped' state and cause reactor.run() to exit. */
+
+    /** Fire 'shutdown' System Events, which will move the reactor to the
+     * 'stopped' state and cause reactor.run() to exit. */
     public void stop() {
         _running = false;
     }
-    
-    /** Called from other threads to cause this thread to process any pending requests. */
+
+    /** Called from other threads to cause this thread to process any
+     * pending requests. */
     public void wakeup() { _selector.wakeup(); }
-    
+
 }

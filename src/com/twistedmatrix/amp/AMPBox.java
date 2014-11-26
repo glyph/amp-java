@@ -25,7 +25,7 @@ import java.util.HashSet;
 
 /**
  * Small ordered key =&gt; value mapping where the keys and values are both byte
- * arrays. This class is used to decode and encode AMP messages coming from and 
+ * arrays. This class is used to decode and encode AMP messages coming from and
  * going to the network. This class is rarely, if ever, used directly.
  */
 
@@ -45,12 +45,12 @@ public class AMPBox implements Map<byte[], byte[]> {
     @Override public void clear() throws UnsupportedOperationException {
         throw new UnsupportedOperationException();
     }
-    
+
     /** Returns true if this map contains a mapping for the specified key. */
     public boolean containsKey(Object value) {
         return null != get(value);
     }
-    
+
     /** Returns true if this map maps one or more keys to the specified value. */
     public boolean containsValue(Object v) {
         byte[] value = (byte[]) v;
@@ -61,7 +61,7 @@ public class AMPBox implements Map<byte[], byte[]> {
         }
         return false;
     }
-    
+
     /** Returns a {@link Set} view of the mappings contained in this map. */
     @Override public Set<Map.Entry<byte[], byte[]>> entrySet() {
         HashSet<Map.Entry<byte[], byte[]>> hs =
@@ -71,7 +71,7 @@ public class AMPBox implements Map<byte[], byte[]> {
         }
         return hs;
     }
-    
+
     /** Encodes the mapped data to a byte array. */
     public byte[] encode() {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -86,14 +86,14 @@ public class AMPBox implements Map<byte[], byte[]> {
         baos.write(0);
         return baos.toByteArray();
     }
-    
+
     /** Compares the specified object with this map for equality. */
     @Override public boolean equals (Object o) {
         if (!(o instanceof AMPBox)) {
             return false;
         }
         AMPBox other = (AMPBox) o;
-	
+
         for (Pair p: pairs) {
             if (!Arrays.equals(other.get(p.key), p.value)) {
                 return false;
@@ -101,7 +101,7 @@ public class AMPBox implements Map<byte[], byte[]> {
         }
         return true;
     }
-    
+
     /** Adds all the public variables of an arbitrary Java object the the map.*/
     public void extractFrom(Object o) {
         Class c = o.getClass();
@@ -110,27 +110,27 @@ public class AMPBox implements Map<byte[], byte[]> {
 	    putAndEncode(f, o);
 	}
     }
-    
+
     /** Extract error information if remote command returned an error. */
     public Throwable fillError() {
 	String code = (String) getAndDecode("_error_code", String.class);
 	String description = (String) getAndDecode("_error_description",
 						   String.class);
-	
+
 	return new Throwable(code + " " + description);
     }
-    
+
     /**
      * Take the values encoded in this packet and map them into an arbitrary
      * Java object.  This method will fill out fields declared in the given
      * object's class which correspond to types defined in the AMP protocol:
      * integer, unicode string, raw bytes, boolean, float.
      */
-    
+
     public void fillOut(Object o) {
         Class c = o.getClass();
         Field[] fields = c.getFields();
-	
+
         try {
             for (Field f: fields) {
                 byte[] toDecode = get(f.getName());
@@ -147,8 +147,8 @@ public class AMPBox implements Map<byte[], byte[]> {
 	    */
         }
     }
-    
-    /** Returns the value to which the specified key is mapped, or null 
+
+    /** Returns the value to which the specified key is mapped, or null
      * if this map contains no mapping for the key. */
     public byte[] get(byte[] key) {
         for(Pair p: pairs) {
@@ -159,13 +159,13 @@ public class AMPBox implements Map<byte[], byte[]> {
         return null;
     }
 
-    /** Returns the value to which the specified key is mapped, or null 
+    /** Returns the value to which the specified key is mapped, or null
      * if this map contains no mapping for the key. */
     public byte[] get(String key) {
         return get(key.getBytes());
     }
 
-    /** Returns the value to which the specified key is mapped, or null 
+    /** Returns the value to which the specified key is mapped, or null
      * if this map contains no mapping for the key. */
     public byte[] get(Object key) {
         if (key instanceof String) {
@@ -192,7 +192,7 @@ public class AMPBox implements Map<byte[], byte[]> {
     @Override public boolean isEmpty() {
 	return 0 == size();
     }
-    
+
     /** Returns a {@link Set} view of the keys contained in this map. */
     @Override public Set<byte[]> keySet() {
         HashSet<byte[]> hs = new HashSet<byte[]>();
@@ -201,13 +201,13 @@ public class AMPBox implements Map<byte[], byte[]> {
         }
         return hs;
     }
-    
+
     /** Associates the specified value with the specified key in this map. */
     @Override public byte[] put(byte[] key, byte[] value) {
         pairs.add(new Pair(key, value));
         return null;
     }
-    
+
     /** Associates the specified value with the specified key in this map. */
     public void put(String key, String value) {
         put(asBytes(key), asBytes(value));
@@ -224,7 +224,7 @@ public class AMPBox implements Map<byte[], byte[]> {
             put(me.getKey(), me.getValue());
         }
     }
-    
+
 
     /** Encode outgoing data. */
     public void putAndEncode(Field fld, Object o) {
@@ -263,7 +263,7 @@ public class AMPBox implements Map<byte[], byte[]> {
         }
         return null;
     }
-    
+
     /** Returns the number of key-value mappings in this map. */
     @Override public int size() {
         return pairs.size();
@@ -277,7 +277,7 @@ public class AMPBox implements Map<byte[], byte[]> {
         }
         return v;
     }
-    
+
     private class Pair implements Map.Entry<byte[], byte[]> {
         Pair(byte[] k, byte[] v) {
             this.key = k;
@@ -303,7 +303,7 @@ public class AMPBox implements Map<byte[], byte[]> {
             throw new UnsupportedOperationException();
         }
     }
-    
+
     /** Convenience API because there is no byte literal syntax in java. */
     private static byte[] asBytes(String in) {
         return asBytes(in, "ISO-8859-1");

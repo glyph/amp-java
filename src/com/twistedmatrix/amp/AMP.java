@@ -12,11 +12,11 @@ import com.twistedmatrix.internet.*;
 import com.twistedmatrix.internet.Deferred.Failure;
 
 /**
- * The actual asynchronous messaging protocol, with command dispatch. 
- * Extend this class to actually exchanges messages. Outgoing commands 
- * are submitted by building an {@link RemoteCommand} and invoking it's 
- * callRemote method. Incoming commands are handled by building a 
- * {@link LocalCommand} object and using the localCommand method to 
+ * The actual asynchronous messaging protocol, with command dispatch.
+ * Extend this class to actually exchanges messages. Outgoing commands
+ * are submitted by building an {@link RemoteCommand} and invoking it's
+ * callRemote method. Incoming commands are handled by building a
+ * {@link LocalCommand} object and using the localCommand method to
  * register it in the constructor. </BR></BR> Supported data types:<UL>
  *<LI>AMP Integer  = java.lang.Integer or int</LI>
  *<LI>AMP String   = java.nio.ByteBuffer or byte[]</LI>
@@ -55,7 +55,7 @@ public class AMP extends AMPParser {
         return Integer.toHexString(_counter);
     }
 
-    /** Class for invoking remote commands and managing their responses. 
+    /** Class for invoking remote commands and managing their responses.
      * For both the remote parameters and local response objects, the public
      * variables must consist of the types supported by {@link AMP}. */
     public class RemoteCommand<R> {
@@ -68,8 +68,8 @@ public class AMP extends AMPParser {
 	 *  @param name The name of the remote command to invoke.
 	 *  @param params A populated object whose values will be passed as
 	 *         arguments to the remote command.
-	 *  @param response The object that will be populated with the 
-	 *         remote command response 
+	 *  @param response The object that will be populated with the
+	 *         remote command response
 	 */
         public RemoteCommand(String name, Object params, R response) {
 	    _box = new AMPBox();
@@ -84,8 +84,8 @@ public class AMP extends AMPParser {
 	private R getResponse() { return _response; }
 	private Deferred getDeferred() { return _deferred; }
 
-	/** Actually invoke the remote command. 
-	 * @return A {@link Deferred}, to which you use addCallback and 
+	/** Actually invoke the remote command.
+	 * @return A {@link Deferred}, to which you use addCallback and
 	 * addErrback to add handlers for success and failure respectively.
 	 */
 	public Deferred callRemote() {
@@ -95,7 +95,7 @@ public class AMP extends AMPParser {
 	    return _deferred;
 	}
     }
-    
+
     /**
      * An AMPBox was received from the network.
      * Determine its type and dispatch it to the appropriate handler.
