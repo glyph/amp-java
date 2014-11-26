@@ -161,8 +161,39 @@ public class CountServerSSL extends AMP {
 	System.out.println("connection lost 1:" + reason);
     }
 
-    /** This context loads the server certificate, which is GOOD ENOUGH.
-     * See CountClientSSL.java for other options. */
+    /** This context validates the server certificate, which is GOOD. */
+    private static SSLContext getSecureContext() {
+	// java -Djavax.net.debug=SSL
+	SSLContext ctx = null;
+	try {
+	    ctx = SSLContext.getDefault();
+	} catch (Exception e) { e.printStackTrace(); }
+
+	return ctx;
+    }
+
+    /** This context does NOT validate the server certificate, which is BAD. */
+    private static SSLContext getInsecureContext() {
+	TrustManager[] trustAll = new TrustManager[]{ new X509TrustManager() {
+		public X509Certificate[] getAcceptedIssuers() {
+		    return new X509Certificate[0];
+		}
+		public void checkClientTrusted(X509Certificate[] certs,
+					       String authType){ }
+		public void checkServerTrusted(X509Certificate[] certs,
+					       String authType){ }
+	    }};
+
+	SSLContext ctx = null;
+	try {
+	    ctx = SSLContext.getInstance("TLS");
+	    ctx.init(null, trustAll, new SecureRandom());
+	} catch (Exception e) { e.printStackTrace(); }
+
+	return ctx;
+    }
+
+    /** This context loads the server certificate, which is GOOD ENOUGH. */
     private static SSLContext getCustomContext() {
 	// The alias/password for localhost.ks is importkey/password
 
@@ -187,6 +218,12 @@ public class CountServerSSL extends AMP {
 		    System.out.println("building protocol");
 		    return new CountServerSSL(reactor);
 		}
+
+		/* Connect without a certificate, which is REALLY BAD
+		@Override public String[] getEnabledCipherSuites() {
+		    return new String[] {"TLS_DH_anon_WITH_AES_128_CBC_SHA"};
+		};
+		*/
 
 		@Override public void startedListening(IListeningPort port) {
 		    System.out.println("listening");

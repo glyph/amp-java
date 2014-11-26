@@ -247,6 +247,12 @@ public class CountClientSSL extends AMP {
 		    System.exit(0);
 		}
 
+		/* Connect without a certificate, which is REALLY BAD
+		@Override public String[] getEnabledCipherSuites() {
+		    return new String[] {"TLS_DH_anon_WITH_AES_128_CBC_SHA"};
+		};
+		*/
+
 		@Override public void startedConnecting(IConnector connector) {
 		    System.out.println("connecting");
 		}

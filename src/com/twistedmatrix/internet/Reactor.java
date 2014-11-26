@@ -332,7 +332,7 @@ public class Reactor {
 
     /** Implements the bulk of the tcp server support */
     private class TCPPort extends TCPConnection implements IListeningPort {
-        private   ServerFactory       serverFactory;
+        protected ServerFactory       serverFactory;
         protected ServerSocketChannel schannel;
         private   ServerSocket        ssocket;
         private   InetSocketAddress   addr;
@@ -419,8 +419,14 @@ public class Reactor {
 		_key = channel.register(_selector,SelectionKey.OP_READ,this);
 		interestOpsChanged();
 
+		String[] ecs = this.serverFactory.getEnabledCipherSuites();
+
 		super.startReading();
 		this.engine = _ctx.createSSLEngine();
+
+		if (ecs != null && ecs.length > 0)
+		    this.engine.setEnabledCipherSuites(ecs);
+
 		this.engine.setUseClientMode(false);
 		this.engine.beginHandshake();
 		this.wrap(); // Initiate the handshake
@@ -432,7 +438,7 @@ public class Reactor {
 
     /** Implements the bulk of the tcp client support */
     private class TCPConnect extends TCPConnection implements IConnector {
-	private ClientFactory     clientFactory;
+	protected ClientFactory     clientFactory;
         private InetSocketAddress addr;
 
 	TCPConnect(String host, int port, ClientFactory cf) throws Throwable {
@@ -523,8 +529,13 @@ public class Reactor {
 
 	@Override public void doConnect() throws Throwable {
 	    try {
+		String[] ecs = this.clientFactory.getEnabledCipherSuites();
 		this.channel.finishConnect();
 		this.engine = _ctx.createSSLEngine();
+
+		if (ecs != null && ecs.length > 0)
+		    this.engine.setEnabledCipherSuites(ecs);
+
 		this.engine.setUseClientMode(true);
 		this.engine.beginHandshake();
 
