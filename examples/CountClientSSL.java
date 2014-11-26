@@ -20,7 +20,7 @@ import com.twistedmatrix.amp.*;
 import com.twistedmatrix.internet.*;
 
 /** To compile: ant buildexamples
-    To run: ant runexclient
+    To run: java -cp classes CountClientSSL
  */
 
 public class CountClientSSL extends AMP {
