@@ -51,8 +51,8 @@ public class AMP extends AMPParser {
      * subsequent requests.
      */
     private String nextTag() {
-        _counter++;
-        return Integer.toHexString(_counter);
+	_counter++;
+	return Integer.toHexString(_counter);
     }
 
     /** Class for invoking remote commands and managing their responses.
@@ -60,26 +60,26 @@ public class AMP extends AMPParser {
      * variables must consist of the types supported by {@link AMP}. */
     public class RemoteCommand<R> {
 	private String   _asktag   = "";
-        private R        _response = null;
-        private Deferred _deferred = null;
+	private R	_response = null;
+	private Deferred _deferred = null;
 	private AMPBox   _box      = null;
 
 	/** The heavy lifting for invoking a remote command happens here.
 	 *  @param name The name of the remote command to invoke.
 	 *  @param params A populated object whose values will be passed as
-	 *         arguments to the remote command.
+	 *	 arguments to the remote command.
 	 *  @param response The object that will be populated with the
-	 *         remote command response
+	 *	 remote command response
 	 */
-        public RemoteCommand(String name, Object params, R response) {
+	public RemoteCommand(String name, Object params, R response) {
 	    _box = new AMPBox();
 	    _asktag = AMP.this.nextTag();
-            _response = response;
+	    _response = response;
 
 	    _box.putAndEncode("_command", name);
 	    _box.putAndEncode("_ask", _asktag);
 	    _box.extractFrom(params);
-        }
+	}
 
 	private R getResponse() { return _response; }
 	private Deferred getDeferred() { return _deferred; }
@@ -91,7 +91,7 @@ public class AMP extends AMPParser {
 	public Deferred callRemote() {
 	    AMP.this.sendBox(_box);
 	    AMP.this._remotes.put(_asktag, RemoteCommand.this);
-            _deferred = new Deferred();
+	    _deferred = new Deferred();
 	    return _deferred;
 	}
     }
@@ -103,30 +103,30 @@ public class AMP extends AMPParser {
      *  @param box The AMPBox to received.
      */
     public void ampBoxReceived(AMPBox box) {
-        String msgtype = null;
-        String cmdprop = null;
+	String msgtype = null;
+	String cmdprop = null;
 
-        for(String k : new String[] {"_answer", "_error", "_command"}) {
-            cmdprop = (String) box.getAndDecode(k, String.class);
-            if (cmdprop != null) {
-                msgtype = k;
-                break;
-            }
-        }
+	for(String k : new String[] {"_answer", "_error", "_command"}) {
+	    cmdprop = (String) box.getAndDecode(k, String.class);
+	    if (cmdprop != null) {
+		msgtype = k;
+		break;
+	    }
+	}
 
-        if (null == msgtype) {
-            /* An error?  We definitely don't know what to do with it.  */
-            return;
-        }
+	if (null == msgtype) {
+	    /* An error?  We definitely don't know what to do with it.  */
+	    return;
+	}
 
-        if ("_answer".equals(msgtype)) {
-            RemoteCommand rc = this._remotes.get(cmdprop);
-            box.fillOut(rc.getResponse());
-            rc.getDeferred().callback(rc.getResponse());
-        } else if ("_error".equals(msgtype)) {
-            RemoteCommand rc = this._remotes.get(cmdprop);
-            rc.getDeferred().errback(new Failure(box.fillError()));
-        } else if ("_command".equals(msgtype)) {
+	if ("_answer".equals(msgtype)) {
+	    RemoteCommand rc = this._remotes.get(cmdprop);
+	    box.fillOut(rc.getResponse());
+	    rc.getDeferred().callback(rc.getResponse());
+	} else if ("_error".equals(msgtype)) {
+	    RemoteCommand rc = this._remotes.get(cmdprop);
+	    rc.getDeferred().errback(new Failure(box.fillError()));
+	} else if ("_command".equals(msgtype)) {
 	    Method m = null;
 	    Object[] mparams = null;
 
@@ -191,12 +191,13 @@ public class AMP extends AMPParser {
 			this.sendBox(resultBox);
 		    }
 		} catch (Throwable t) {
+		    System.out.println("Unable to invoke " + m.getName());
 		    t.printStackTrace();
 		}
-            }
-        }
+	    }
+	}
     }
-
+    
     /** Associate an incoming command with a local method and its arguments.
      * This is the main way to handle messaged received from the network.
      * @param name The name of the command to be invoked remotely.
@@ -228,10 +229,10 @@ public class AMP extends AMPParser {
      *  @param box The AMPBox to send.
      */
     public void sendBox(AMPBox box) {
-        ITransport t = this.transport();
-        if (null == t) {
-            return;
-        }
-        t.write(box.encode());
+	ITransport t = this.transport();
+	if (null == t) {
+	    return;
+	}
+	t.write(box.encode());
     }
 }

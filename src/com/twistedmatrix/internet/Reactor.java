@@ -31,52 +31,52 @@ import javax.net.ssl.SSLSession;
  * it easier to one day support multiple reactors.
 */
 public class Reactor {
-    private static int                    BUFFER_SIZE  = 8 * 1024;
+    private static int	                BUFFER_SIZE  = 8 * 1024;
 
-    private        TCPConnection          _connection;
-    private        Selector               _selector;
-    private        boolean                _running;
-    private        TreeMap<Long,Runnable> _pendingCalls;
+    private	TCPConnection           _connection;
+    private	Selector                _selector;
+    private	boolean		_running;
+    private	TreeMap<Long,Runnable> _pendingCalls;
 
     public Reactor () throws IOException {
-        _selector = Selector.open();
-        _running = false;
-        _pendingCalls = new TreeMap<Long,Runnable>();
+	_selector = Selector.open();
+	_running = false;
+	_pendingCalls = new TreeMap<Long,Runnable>();
     }
 
     /* It appears that this interface is actually unnamed in
      * Twisted... abstract.FileDescriptor serves this purpose.
      */
     private class Selectable {
-        protected SelectionKey _key;
+	protected SelectionKey _key;
 
 	public boolean isConnecting() {
-            msg("UNHANDLED ISCONNECTING "+this);
+	    msg("UNHANDLED ISCONNECTING "+this);
 	    return false;
 	}
-        public void doRead() throws Throwable {
-            msg("UNHANDLED READ "+this);
-        }
-        public void doWrite() throws Throwable {
-            msg("UNHANDLED WRITE "+this);
-        }
-        public void doAccept() throws Throwable {
-            msg("UNHANDLED ACCEPT "+this);
-        }
-        public void doConnect() throws Throwable {
-            msg("UNHANDLED CONNECT "+this);
-        }
+	public void doRead() throws Throwable {
+	    msg("UNHANDLED READ "+this);
+	}
+	public void doWrite() throws Throwable {
+	    msg("UNHANDLED WRITE "+this);
+	}
+	public void doAccept() throws Throwable {
+	    msg("UNHANDLED ACCEPT "+this);
+	}
+	public void doConnect() throws Throwable {
+	    msg("UNHANDLED CONNECT "+this);
+	}
     }
 
     private abstract class TCPConnection
 	extends Selectable implements ITransport {
-	private ByteBuffer         inbuf;
+	private ByteBuffer	 inbuf;
 	private ArrayList<byte[]>  outbufs;
 
-        protected SocketChannel     channel;
-        protected Socket            socket;
-	protected IProtocol         protocol;
-        protected boolean           disconnecting;
+	protected SocketChannel     channel;
+	protected Socket	    socket;
+	protected IProtocol	 protocol;
+	protected boolean	   disconnecting;
 
 	/* Used for encrypted connections */
 	protected SSLEngine  engine;
@@ -84,84 +84,84 @@ public class Reactor {
 
 	TCPConnection(int portno) throws Throwable {
 	    _connection = this;
-            this.inbuf = ByteBuffer.allocate(BUFFER_SIZE);
-            this.inbuf.clear();
-            this.outbufs = new ArrayList<byte[]>();
-            this.disconnecting = false;
+	    this.inbuf = ByteBuffer.allocate(BUFFER_SIZE);
+	    this.inbuf.clear();
+	    this.outbufs = new ArrayList<byte[]>();
+	    this.disconnecting = false;
 
 	    this.wrapSrc = ByteBuffer.allocateDirect(BUFFER_SIZE);
 	    this.wrapDst = ByteBuffer.allocateDirect(BUFFER_SIZE * 8);
 	    this.unwrapSrc = ByteBuffer.allocateDirect(BUFFER_SIZE * 8);
 	    this.unwrapDst = ByteBuffer.allocateDirect(BUFFER_SIZE);
 	    this.unwrapSrc.limit(0);
-        }
+	}
 
-        // HAHAHAHA the fab four strike again
-        protected void startReading() {
-            _key.interestOps(_key.interestOps() | SelectionKey.OP_READ);
-            interestOpsChanged();
-        }
+	// HAHAHAHA the fab four strike again
+	protected void startReading() {
+	    _key.interestOps(_key.interestOps() | SelectionKey.OP_READ);
+	    interestOpsChanged();
+	}
 
-        private void startWriting () {
-            _key.interestOps(_key.interestOps() | SelectionKey.OP_WRITE);
-            interestOpsChanged();
-        }
+	private void startWriting () {
+	    _key.interestOps(_key.interestOps() | SelectionKey.OP_WRITE);
+	    interestOpsChanged();
+	}
 
-        private void stopReading () {
-            _key.interestOps(_key.interestOps() & ~SelectionKey.OP_READ);
-            interestOpsChanged();
-        }
+	private void stopReading () {
+	    _key.interestOps(_key.interestOps() & ~SelectionKey.OP_READ);
+	    interestOpsChanged();
+	}
 
-        private void stopWriting () {
-            _key.interestOps(_key.interestOps() & ~SelectionKey.OP_WRITE);
-            interestOpsChanged();
-        }
+	private void stopWriting () {
+	    _key.interestOps(_key.interestOps() & ~SelectionKey.OP_WRITE);
+	    interestOpsChanged();
+	}
 
 	public void doRead() throws Throwable {
-            boolean failed = false;
-            Throwable reason = null;
-            try {
-                int bytesread = channel.read(inbuf);
-                failed = (-1 == bytesread);
-            } catch (IOException ioe) {
-                failed = true;
-                reason = ioe;
-            }
+	    boolean failed = false;
+	    Throwable reason = null;
+	    try {
+		int bytesread = channel.read(inbuf);
+		failed = (-1 == bytesread);
+	    } catch (IOException ioe) {
+		failed = true;
+		reason = ioe;
+	    }
 
-            if (failed) {
+	    if (failed) {
 		if (this.engine != null) {
 		    this.engine.closeOutbound();
 		    while (this.step()) { continue; }
 		}
 
-                channel.close();
-                _key.cancel();
-                interestOpsChanged();
+		channel.close();
+		_key.cancel();
+		interestOpsChanged();
 
 		if (null == reason)
 		    reason = new IOException("Connection reset by peer");
-                this.protocol.connectionLost(reason);
-                return;
-            }
+		this.protocol.connectionLost(reason);
+		return;
+	    }
 
-            byte[] data = new byte[inbuf.position()];
-            inbuf.flip();
-            inbuf.get(data);
-            inbuf.clear();
-            try {
+	    byte[] data = new byte[inbuf.position()];
+	    inbuf.flip();
+	    inbuf.get(data);
+	    inbuf.clear();
+	    try {
 		if (this.engine == null) {
 		    this.protocol.dataReceived(data);
 		} else {
 		    unwrapSrc.put(data);
 		    while (this.step()) { continue; }
 		}
-            } catch (Throwable t) {
-                t.printStackTrace();
-                this.connectionLost(t);
-            }
-        }
+	    } catch (Throwable t) {
+		t.printStackTrace();
+		this.connectionLost(t);
+	    }
+	}
 
-        public void write(byte[] data) {
+	public void write(byte[] data) {
 	    if (this.engine == null) {
 		this.outbufs.add(data);
 		this.startWriting();
@@ -169,21 +169,21 @@ public class Reactor {
 		wrapSrc.put(data);
 		while (this.step()) { continue; }
 	    }
-        }
+	}
 
-        public void doWrite() throws Throwable {
-            if (0 == this.outbufs.size()) {
-                if (this.disconnecting) {
-                    this.channel.close();
+	public void doWrite() throws Throwable {
+	    if (0 == this.outbufs.size()) {
+		if (this.disconnecting) {
+		    this.channel.close();
 		  this.protocol.connectionLost(new Throwable("Disconnected"));
 		}
-            } else {
-                this.channel.write(ByteBuffer.wrap(this.outbufs.remove(0)));
-                if (0 == this.outbufs.size()) {
-                    this.stopWriting();
-                }
-            }
-        }
+	    } else {
+		this.channel.write(ByteBuffer.wrap(this.outbufs.remove(0)));
+		if (0 == this.outbufs.size()) {
+		    this.stopWriting();
+		}
+	    }
+	}
 
 	/* Actually encrypt outgoing data */
 	protected boolean wrap() {
@@ -332,39 +332,39 @@ public class Reactor {
 
     /** Implements the bulk of the tcp server support */
     private class TCPPort extends TCPConnection implements IListeningPort {
-        protected ServerFactory       serverFactory;
-        protected ServerSocketChannel schannel;
-        private   ServerSocket        ssocket;
-        private   InetSocketAddress   addr;
+	protected ServerFactory       serverFactory;
+	protected ServerSocketChannel schannel;
+	private   ServerSocket	ssocket;
+	private   InetSocketAddress   addr;
 
-        TCPPort(int port, ServerFactory sf) throws Throwable {
+	TCPPort(int port, ServerFactory sf) throws Throwable {
 	    super(port);
-            this.serverFactory = sf;
-            this.addr = new InetSocketAddress(port);
+	    this.serverFactory = sf;
+	    this.addr = new InetSocketAddress(port);
 
-            this.schannel = ServerSocketChannel.open();
-            this.schannel.configureBlocking(false);
-            this.ssocket = schannel.socket();
-            this.ssocket.bind(this.addr);
-            this.protocol = sf.buildProtocol(this.addr);
+	    this.schannel = ServerSocketChannel.open();
+	    this.schannel.configureBlocking(false);
+	    this.ssocket = schannel.socket();
+	    this.ssocket.bind(this.addr);
+	    this.protocol = sf.buildProtocol(this.addr);
 
 	    _key = schannel.register(_selector, SelectionKey.OP_ACCEPT,this);
-            interestOpsChanged();
+	    interestOpsChanged();
 
-            this.startListening();
-        }
+	    this.startListening();
+	}
 
 	public InetSocketAddress getHost() { return this.addr; }
 
-        public void startListening() throws Throwable {
-            _key.interestOps(_key.interestOps() | SelectionKey.OP_ACCEPT);
-            interestOpsChanged();
+	public void startListening() throws Throwable {
+	    _key.interestOps(_key.interestOps() | SelectionKey.OP_ACCEPT);
+	    interestOpsChanged();
 	    this.serverFactory.startedListening(this);
-        }
+	}
 
 	public void doAccept() throws Throwable {
-            SocketChannel newchannel = schannel.accept();
-            if (null == newchannel) {
+	    SocketChannel newchannel = schannel.accept();
+	    if (null == newchannel) {
 		throw new Throwable("Unable to accept connection!");
 	    } else {
 		channel = newchannel;
@@ -378,37 +378,37 @@ public class Reactor {
 		super.startReading();
 		this.protocol.makeConnection(this);
 	    }
-        }
+	}
 
 	public void connectionLost(Throwable reason) {
 	    this.serverFactory.connectionLost(this, reason);
-        }
+	}
 
-        public void loseConnection(Throwable reason) {
+	public void loseConnection(Throwable reason) {
 	    if (this.engine != null) {
 		this.engine.closeOutbound();
 		while (this.step()) { continue; }
 	    }
 
-            this.disconnecting = true;
-            _key.interestOps(_key.interestOps() & ~SelectionKey.OP_ACCEPT);
-            _key.cancel();
-            interestOpsChanged();
-        }
+	    this.disconnecting = true;
+	    _key.interestOps(_key.interestOps() & ~SelectionKey.OP_ACCEPT);
+	    _key.cancel();
+	    interestOpsChanged();
+	}
      }
 
     /** Implements the SSL server support */
     private class SSLPort extends TCPPort {
 	private SSLContext _ctx;
 
-        SSLPort(int port, SSLContext ctx, ServerFactory sf) throws Throwable {
+	SSLPort(int port, SSLContext ctx, ServerFactory sf) throws Throwable {
 	    super(port, sf);
 	    _ctx = ctx;
 	}
 
 	@Override public void doAccept() throws Throwable {
-            SocketChannel newchannel = schannel.accept();
-            if (null == newchannel) {
+	    SocketChannel newchannel = schannel.accept();
+	    if (null == newchannel) {
 		throw new Throwable("Unable to accept connection!");
 	    } else {
 		channel = newchannel;
@@ -433,13 +433,13 @@ public class Reactor {
 		while (this.step()) { continue; } // Complete the handshake
 		this.protocol.makeConnection(this);
 	    }
-        }
+	}
     }
 
     /** Implements the bulk of the tcp client support */
     private class TCPConnect extends TCPConnection implements IConnector {
 	protected ClientFactory     clientFactory;
-        private InetSocketAddress addr;
+	private InetSocketAddress addr;
 
 	TCPConnect(String host, int port, ClientFactory cf) throws Throwable {
 	    super(port);
@@ -449,10 +449,10 @@ public class Reactor {
 	    this.channel = SocketChannel.open();
 	    this.channel.configureBlocking(false);
 	    this.socket = channel.socket();
-            this.protocol = cf.buildProtocol(this.addr);
+	    this.protocol = cf.buildProtocol(this.addr);
 
 	    _key = channel.register(_selector, SelectionKey.OP_CONNECT,this);
-            interestOpsChanged();
+	    interestOpsChanged();
 
 	    this.connect();
 	}
@@ -465,11 +465,11 @@ public class Reactor {
 	    this.channel.connect(this.addr);
 	    this.channel.configureBlocking(false);
 	    this.socket.setTcpNoDelay(true);
-            _key.interestOps(_key.interestOps() | SelectionKey.OP_CONNECT);
+	    _key.interestOps(_key.interestOps() | SelectionKey.OP_CONNECT);
 	    interestOpsChanged();
 	}
 
-        public void loseConnection(Throwable reason) {
+	public void loseConnection(Throwable reason) {
 	    _key.interestOps(_key.interestOps() & ~SelectionKey.OP_CONNECT);
 	    _key.cancel();
 	    interestOpsChanged();
@@ -497,7 +497,7 @@ public class Reactor {
 	    }
 	}
 
-         public void doConnect() throws Throwable {
+	 public void doConnect() throws Throwable {
 	    try {
 		this.channel.finishConnect();
 		super.startReading();
@@ -505,16 +505,16 @@ public class Reactor {
 	    } catch (ConnectException e) {
 		connectionFailed(e);
 	    }
-        }
+	}
 
 	public void connectionFailed(Throwable reason) {
 	    this.clientFactory.clientConnectionFailed(this, reason);
-        }
+	}
 
-        public void connectionLost(Throwable reason) {
+	public void connectionLost(Throwable reason) {
 	    this.protocol.connectionLost(reason);
 	    this.clientFactory.clientConnectionLost(this, reason);
-        }
+	}
     }
 
     /** Implements the SSL client support */
@@ -553,62 +553,62 @@ public class Reactor {
      * timeout.  Negative timeout means "no timeout".
      */
     private long runUntilCurrent(long now) {
-        while (0 != _pendingCalls.size()) {
-            try {
-                long then = _pendingCalls.firstKey();
-                if (then < now) {
-                    Runnable r = _pendingCalls.remove((Object) new Long(then));
-                    r.run();
-                } else {
-                    return then - now;
-                }
-            } catch (NoSuchElementException nsee) {
-                nsee.printStackTrace();
-                throw new Error("Impossible; _pendingCalls.size was not zero");
-            }
-        }
-        return -1;
+	while (0 != _pendingCalls.size()) {
+	    try {
+		long then = _pendingCalls.firstKey();
+		if (then < now) {
+		    Runnable r = _pendingCalls.remove((Object) new Long(then));
+		    r.run();
+		} else {
+		    return then - now;
+		}
+	    } catch (NoSuchElementException nsee) {
+		nsee.printStackTrace();
+		throw new Error("Impossible; _pendingCalls.size was not zero");
+	    }
+	}
+	return -1;
     }
 
     private void iterate() throws Throwable {
-        Iterator<SelectionKey> selectedKeys=_selector.selectedKeys().iterator();
-        while (selectedKeys.hasNext()) {
-            SelectionKey _key = selectedKeys.next();
-            Selectable selectable = ((Selectable) _key.attachment());
-            if (_key.isValid() && _key.isWritable() &&
+	Iterator<SelectionKey> selectedKeys=_selector.selectedKeys().iterator();
+	while (selectedKeys.hasNext()) {
+	    SelectionKey _key = selectedKeys.next();
+	    Selectable selectable = ((Selectable) _key.attachment());
+	    if (_key.isValid() && _key.isWritable() &&
 		!selectable.isConnecting()) {
-                selectable.doWrite();
-            }
-            if (_key.isValid() && _key.isReadable() &&
+		selectable.doWrite();
+	    }
+	    if (_key.isValid() && _key.isReadable() &&
 		!selectable.isConnecting()) {
-                selectable.doRead();
-            }
-            if (_key.isValid() && _key.isAcceptable()) {
-                selectable.doAccept();
-            }
-            if (_key.isValid() && _key.isConnectable()) {
-                selectable.doConnect();
-            }
+		selectable.doRead();
+	    }
+	    if (_key.isValid() && _key.isAcceptable()) {
+		selectable.doAccept();
+	    }
+	    if (_key.isValid() && _key.isConnectable()) {
+		selectable.doConnect();
+	    }
 	    selectedKeys.remove();
-        }
+	}
     }
 
     /**
      * This may need to run the runUntilCurrent() in a different thread.
      */
     private long processTimedEvents() {
-        long now = System.currentTimeMillis();
-        return runUntilCurrent(now);
+	long now = System.currentTimeMillis();
+	return runUntilCurrent(now);
     }
 
     /** Runs something later. */
     public void callLater(double secondsLater, Runnable runme) {
-        long millisLater = (long) (secondsLater * 1000.0);
-        synchronized(_pendingCalls) {
-            _pendingCalls.put(System.currentTimeMillis() + millisLater, runme);
-            // This isn't actually an interestOps
-            interestOpsChanged();
-        }
+	long millisLater = (long) (secondsLater * 1000.0);
+	synchronized(_pendingCalls) {
+	    _pendingCalls.put(System.currentTimeMillis() + millisLater, runme);
+	    // This isn't actually an interestOps
+	    interestOpsChanged();
+	}
     }
 
     /** Connect a client protocol factory to a remote SSL server.  */
@@ -627,7 +627,7 @@ public class Reactor {
      * Override this method in subclasses to iterate in a different thread.
      */
     public void doIteration() throws Throwable {
-        iterate();
+	iterate();
     }
 
     /**
@@ -640,7 +640,7 @@ public class Reactor {
 	} catch (IOException ioe) {
 	    ioe.printStackTrace();
 	}
-        return theReactor;
+	return theReactor;
     }
 
     /**
@@ -655,42 +655,42 @@ public class Reactor {
     /** Connects a SSL server protocol factory to a numeric TCP port. */
     public IListeningPort listenSSL(int portno, SSLContext ctx,
 				    ServerFactory factory) throws Throwable {
-        return new SSLPort(portno, ctx, factory);
+	return new SSLPort(portno, ctx, factory);
     }
 
     /** Connects a TCP server protocol factory to a numeric TCP port. */
     public IListeningPort listenTCP(int portno,
 				    ServerFactory factory) throws Throwable {
-        return new TCPPort(portno, factory);
+	return new TCPPort(portno, factory);
     }
 
     /** Convenience method to print to STDOUT. */
     public static void msg (String m) {
-        System.out.println(m);
+	System.out.println(m);
     }
 
     /** Fire 'startup' System Events, move the reactor to the 'running' state,
      * then run the main loop until it is stopped with stop().  */
     public void run() throws Throwable {
-        _running = true;
-        while (_running) {
-            int selected;
-            long timeout = processTimedEvents();
+	_running = true;
+	while (_running) {
+	    int selected;
+	    long timeout = processTimedEvents();
 
-            if (timeout >= 0) {
-                _selector.select(timeout);
-            } else {
-                _selector.select();
-            }
-            this.doIteration();
-        }
+	    if (timeout >= 0) {
+		_selector.select(timeout);
+	    } else {
+		_selector.select();
+	    }
+	    this.doIteration();
+	}
 	_connection.connectionLost(new Throwable("Shutdown"));
     }
 
     /** Fire 'shutdown' System Events, which will move the reactor to the
      * 'stopped' state and cause reactor.run() to exit. */
     public void stop() {
-        _running = false;
+	_running = false;
     }
 
     /** Called from other threads to cause this thread to process any

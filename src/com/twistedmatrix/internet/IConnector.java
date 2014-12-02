@@ -23,4 +23,3 @@ public interface IConnector {
     public void stopConnecting();
 
 }
-
