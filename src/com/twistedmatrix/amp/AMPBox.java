@@ -353,6 +353,11 @@ public class AMPBox implements Map<byte[], byte[]> {
 	return listVals;
     }
 
+    private int getItemLength(byte[] item) {
+	return (Int16StringReceiver.toInt(item[0])*256) +
+	    Int16StringReceiver.toInt(item[1]);
+    }
+
     /** Decode incoming data. */
     private Object decodeObject(byte[] toDecode, Class t, List<Class> lvals) {
 	if (null != toDecode) {
@@ -413,8 +418,7 @@ public class AMPBox implements Map<byte[], byte[]> {
 		for (Field f: fields) params.put(f.getName(), f);
 
 		while (toDecode.length > 1) {
-		    int tdlen=(Int16StringReceiver.toInt(toDecode[0])*256) +
-			Int16StringReceiver.toInt(toDecode[1]);
+		    int tdlen = getItemLength(toDecode);
 		    if (tdlen > 0) {
 			Map<String,Object> values =new HashMap<String,Object>();
 			for (String param: params.keySet()) {
@@ -426,18 +430,29 @@ public class AMPBox implements Map<byte[], byte[]> {
 			    System.arraycopy(oldbuf,tdlen+2,toDecode,0,newlen);
 			    String key =(String) decodeObject(hunk,String.class,
 							      lvals);
-			    tdlen=(Int16StringReceiver.toInt(toDecode[0])*256) +
-				Int16StringReceiver.toInt(toDecode[1]);
+
+			    tdlen = getItemLength(toDecode);
 			    hunk = new byte[tdlen];
-			    System.arraycopy(toDecode, 2, hunk, 0, tdlen);
-			    oldbuf = toDecode;
-			    newlen = oldbuf.length - tdlen - 2;
-			    toDecode = new byte[newlen];
-			    System.arraycopy(oldbuf,tdlen+2,toDecode,0,newlen);
+			    if (tdlen > 0) {
+				System.arraycopy(toDecode, 2, hunk, 0, tdlen);
+				oldbuf = toDecode;
+				newlen = oldbuf.length - tdlen - 2;
+				toDecode = new byte[newlen];
+				System.arraycopy(oldbuf, tdlen+2,
+						 toDecode, 0, newlen);
+
+			    } else {
+				oldbuf = toDecode;
+				newlen = oldbuf.length - 2;
+				toDecode = new byte[newlen];
+				System.arraycopy(oldbuf,2,toDecode,0,newlen);
+			    }
+			    tdlen = getItemLength(toDecode);
 
 			    Field f = params.get(key);
 			    Object value = decodeObject(hunk, f.getType(),
 							getListTypes(f));
+
 			    values.put(key, value);
 			}
 
@@ -467,9 +482,7 @@ public class AMPBox implements Map<byte[], byte[]> {
 			return decodeObject(toDecode,type,lvals);
 		    } else {
 			while (toDecode.length > 1) {
-			    int tdlen=(Int16StringReceiver.toInt(toDecode[0])*
-				       256) +
-				Int16StringReceiver.toInt(toDecode[1]);
+			    int tdlen = getItemLength(toDecode);
 			    byte[] hunk = new byte[tdlen];
 			    System.arraycopy(toDecode, 2, hunk, 0, tdlen);
 			    byte[] oldbuf = toDecode;
@@ -549,16 +562,17 @@ public class AMPBox implements Map<byte[], byte[]> {
 	} else if (t.getSuperclass() == AmpItem.class) {
 	    Field[] fields = t.getFields();
 	    ByteArrayOutputStream stream = new ByteArrayOutputStream();
-	    for (Object li: (List) o) {
-		for (Field f: fields) {
-		    byte[] bp = encodeObject(String.class, f.getName(), null);
-		    if (bp != null) {
-			stream.write(bp.length / 0x100); // DIV
-			stream.write(bp.length % 0x100); // MOD
-			stream.write(bp, 0, bp.length);
-		    }
 
-		    try {
+	    try {
+		for (Object li: (List) o) {
+		    for (Field f: fields) {
+			byte[] bp = encodeObject(String.class,f.getName(),null);
+			if (bp != null) {
+			    stream.write(bp.length / 0x100); // DIV
+			    stream.write(bp.length % 0x100); // MOD
+			    stream.write(bp, 0, bp.length);
+			}
+
 			bp = encodeObject(f.getType(), f.get(li),
 					  getListTypes(f));
 			if (bp != null) {
@@ -566,12 +580,14 @@ public class AMPBox implements Map<byte[], byte[]> {
 			    stream.write(bp.length % 0x100); // MOD
 			    stream.write(bp, 0, bp.length);
 			}
-		    } catch (Exception e) { e.printStackTrace(); }
+		    }
 		}
-	    }
-	    stream.write(0);
-	    stream.write(0);
+	    } catch (Exception e) { e.printStackTrace(); }
 
+	    if (((List) o).size() > 0) {
+		stream.write(0);
+		stream.write(0);
+	    }
 	    value = stream.toByteArray();
 	} else if (t == List.class || t == ArrayList.class) {
 	    if (lvals == null || lvals.size() == 0) {
