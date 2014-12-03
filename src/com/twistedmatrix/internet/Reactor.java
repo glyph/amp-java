@@ -70,12 +70,12 @@ public class Reactor {
 
     private abstract class TCPConnection
 	extends Selectable implements ITransport {
-	private ByteBuffer	 inbuf;
+	private ByteBuffer	   inbuf;
 	private ArrayList<byte[]>  outbufs;
 
-	protected SocketChannel     channel;
-	protected Socket	    socket;
-	protected IProtocol	 protocol;
+	protected SocketChannel    channel;
+	protected Socket	   socket;
+	protected IProtocol	   protocol;
 	protected boolean	   disconnecting;
 
 	/* Used for encrypted connections */
@@ -140,7 +140,7 @@ public class Reactor {
 
 		if (null == reason)
 		    reason = new IOException("Connection reset by peer");
-		this.protocol.connectionLost(reason);
+		this.connectionLost(reason);
 		return;
 	    }
 
@@ -175,7 +175,7 @@ public class Reactor {
 	    if (0 == this.outbufs.size()) {
 		if (this.disconnecting) {
 		    this.channel.close();
-		  this.protocol.connectionLost(new Throwable("Disconnected"));
+		  this.connectionLost(new Throwable("Disconnected"));
 		}
 	    } else {
 		this.channel.write(ByteBuffer.wrap(this.outbufs.remove(0)));
@@ -252,7 +252,7 @@ public class Reactor {
 		break;
 
 	    case CLOSED:
-		this.protocol.connectionLost(new Throwable("Disconnected"));
+		this.connectionLost(new Throwable("Disconnected"));
 		return false;
 
 	    case BUFFER_OVERFLOW:
