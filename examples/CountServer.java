@@ -136,11 +136,11 @@ public class CountServer extends AMP {
 	    Deferred dfd = remote.callRemote();
 	    dfd.addCallback(new RespHandler());
 	    dfd.addErrback(new ErrHandler());
-	} else { 
+	} else {
 	    _reactor.stop();
 	    System.exit(0);
 	}
-	
+
 	return cr;
     }
 

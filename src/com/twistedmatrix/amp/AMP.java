@@ -191,13 +191,14 @@ public class AMP extends AMPParser {
 			this.sendBox(resultBox);
 		    }
 		} catch (Throwable t) {
-		    System.out.println("Unable to invoke " + m.getName());
+		    System.out.println("Name and parameters matched, but got " +
+				       "an exception invoking " + m.getName());
 		    t.printStackTrace();
 		}
 	    }
 	}
     }
-    
+
     /** Associate an incoming command with a local method and its arguments.
      * This is the main way to handle messaged received from the network.
      * @param name The name of the command to be invoked remotely.

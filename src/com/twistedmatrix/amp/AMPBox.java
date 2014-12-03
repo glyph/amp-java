@@ -33,79 +33,79 @@ public class AMPBox implements Map<byte[], byte[]> {
     private ArrayList<Pair> pairs;
 
     public AMPBox() {
-        pairs = new ArrayList<Pair>();
+	pairs = new ArrayList<Pair>();
     }
 
     /** Convert a byte array into a string. */
     public static String asString(byte[] in) {
-        return asString(in, "ISO-8859-1");
+	return asString(in, "ISO-8859-1");
     }
 
     /** Removes all of the mappings from this map. */
     @Override public void clear() throws UnsupportedOperationException {
-        throw new UnsupportedOperationException();
+	throw new UnsupportedOperationException();
     }
 
     /** Returns true if this map contains a mapping for the specified key. */
     public boolean containsKey(Object value) {
-        return null != get(value);
+	return null != get(value);
     }
 
-    /** Returns true if this map maps one or more keys to the specified value. */
+    /** Returns true if this maps one or more keys to the specified value. */
     public boolean containsValue(Object v) {
-        byte[] value = (byte[]) v;
-        for (Pair p: pairs) {
-            if (Arrays.equals(p.value, value)) {
-                return true;
-            }
-        }
-        return false;
+	byte[] value = (byte[]) v;
+	for (Pair p: pairs) {
+	    if (Arrays.equals(p.value, value)) {
+		return true;
+	    }
+	}
+	return false;
     }
 
     /** Returns a {@link Set} view of the mappings contained in this map. */
     @Override public Set<Map.Entry<byte[], byte[]>> entrySet() {
-        HashSet<Map.Entry<byte[], byte[]>> hs =
-            new HashSet<Map.Entry<byte[], byte[]>>();
-        for (Pair p: pairs) {
-            hs.add(p);
-        }
-        return hs;
+	HashSet<Map.Entry<byte[], byte[]>> hs =
+	    new HashSet<Map.Entry<byte[], byte[]>>();
+	for (Pair p: pairs) {
+	    hs.add(p);
+	}
+	return hs;
     }
 
     /** Encodes the mapped data to a byte array. */
     public byte[] encode() {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        for (Pair p: pairs) {
-            for (byte[] bp : new byte[][] {p.key, p.value}) {
-                baos.write(bp.length / 0x100); // DIV
-                baos.write(bp.length % 0x100); // MOD
-                baos.write(bp, 0, bp.length);
-            }
-        }
-        baos.write(0);
-        baos.write(0);
-        return baos.toByteArray();
+	ByteArrayOutputStream baos = new ByteArrayOutputStream();
+	for (Pair p: pairs) {
+	    for (byte[] bp : new byte[][] {p.key, p.value}) {
+		baos.write(bp.length / 0x100); // DIV
+		baos.write(bp.length % 0x100); // MOD
+		baos.write(bp, 0, bp.length);
+	    }
+	}
+	baos.write(0);
+	baos.write(0);
+	return baos.toByteArray();
     }
 
     /** Compares the specified object with this map for equality. */
     @Override public boolean equals (Object o) {
-        if (!(o instanceof AMPBox)) {
-            return false;
-        }
-        AMPBox other = (AMPBox) o;
+	if (!(o instanceof AMPBox)) {
+	    return false;
+	}
+	AMPBox other = (AMPBox) o;
 
-        for (Pair p: pairs) {
-            if (!Arrays.equals(other.get(p.key), p.value)) {
-                return false;
-            }
-        }
-        return true;
+	for (Pair p: pairs) {
+	    if (!Arrays.equals(other.get(p.key), p.value)) {
+		return false;
+	    }
+	}
+	return true;
     }
 
     /** Adds all the public variables of an arbitrary Java object the the map.*/
     public void extractFrom(Object o) {
-        Class c = o.getClass();
-        Field[] fields = c.getFields();
+	Class c = o.getClass();
+	Field[] fields = c.getFields();
 	for (Field f: fields) {
 	    putAndEncode(f, o);
 	}
@@ -128,52 +128,52 @@ public class AMPBox implements Map<byte[], byte[]> {
      */
 
     public void fillOut(Object o) {
-        Class c = o.getClass();
-        Field[] fields = c.getFields();
+	Class c = o.getClass();
+	Field[] fields = c.getFields();
 
-        try {
-            for (Field f: fields) {
-                byte[] toDecode = get(f.getName());
-                Object decoded = getAndDecode(f);
-                if (null != decoded) {
-                    f.set(o, decoded);
-                }
-            }
-        } catch (IllegalAccessException iae) {
+	try {
+	    for (Field f: fields) {
+		byte[] toDecode = get(f.getName());
+		Object decoded = getAndDecode(f);
+		if (null != decoded) {
+		    f.set(o, decoded);
+		}
+	    }
+	} catch (IllegalAccessException iae) {
 	    iae.printStackTrace();
-            /*
-              This should be basically impossible to get; getFields should
-              only give us public fields.
+	    /*
+	      This should be basically impossible to get; getFields should
+	      only give us public fields.
 	    */
-        }
+	}
     }
 
     /** Returns the value to which the specified key is mapped, or null
      * if this map contains no mapping for the key. */
     public byte[] get(byte[] key) {
-        for(Pair p: pairs) {
-            if (Arrays.equals(key, p.key)) {
-                return p.value;
-            }
-        }
-        return null;
+	for(Pair p: pairs) {
+	    if (Arrays.equals(key, p.key)) {
+		return p.value;
+	    }
+	}
+	return null;
     }
 
     /** Returns the value to which the specified key is mapped, or null
      * if this map contains no mapping for the key. */
     public byte[] get(String key) {
-        return get(key.getBytes());
+	return get(key.getBytes());
     }
 
     /** Returns the value to which the specified key is mapped, or null
      * if this map contains no mapping for the key. */
     public byte[] get(Object key) {
-        if (key instanceof String) {
-            return get((String)key);
-        } else if (key instanceof byte[]) {
-            return get((byte[])key);
-        }
-        return null;
+	if (key instanceof String) {
+	    return get((String)key);
+	} else if (key instanceof byte[]) {
+	    return get((byte[])key);
+	}
+	return null;
     }
 
     /** Decode incoming data. */
@@ -195,34 +195,34 @@ public class AMPBox implements Map<byte[], byte[]> {
 
     /** Returns a {@link Set} view of the keys contained in this map. */
     @Override public Set<byte[]> keySet() {
-        HashSet<byte[]> hs = new HashSet<byte[]>();
-        for (Pair p: pairs) {
-            hs.add(p.key);
-        }
-        return hs;
+	HashSet<byte[]> hs = new HashSet<byte[]>();
+	for (Pair p: pairs) {
+	    hs.add(p.key);
+	}
+	return hs;
     }
 
     /** Associates the specified value with the specified key in this map. */
     @Override public byte[] put(byte[] key, byte[] value) {
-        pairs.add(new Pair(key, value));
-        return null;
+	pairs.add(new Pair(key, value));
+	return null;
     }
 
     /** Associates the specified value with the specified key in this map. */
     public void put(String key, String value) {
-        put(asBytes(key), asBytes(value));
+	put(asBytes(key), asBytes(value));
     }
 
     /** Associates the specified value with the specified key in this map. */
     public void put(String key, byte[] value) {
-        put(asBytes(key), value);
+	put(asBytes(key), value);
     }
 
     /** Copies all of the mappings from the specified map to this map. */
     @Override public void putAll(Map<? extends byte[], ? extends byte[]> m) {
-        for (Map.Entry<? extends byte[], ? extends byte[]> me: m.entrySet()) {
-            put(me.getKey(), me.getValue());
-        }
+	for (Map.Entry<? extends byte[], ? extends byte[]> me: m.entrySet()) {
+	    put(me.getKey(), me.getValue());
+	}
     }
 
 
@@ -234,96 +234,96 @@ public class AMPBox implements Map<byte[], byte[]> {
 	    if (null != value) {
 		put(asBytes(fld.getName()), value);
 	    }
-        } catch (IllegalAccessException iae) {
+	} catch (IllegalAccessException iae) {
 	    iae.printStackTrace();
-            /*
-              This should be basically impossible to get; getFields should
-              only give us public fields.
+	    /*
+	      This should be basically impossible to get; getFields should
+	      only give us public fields.
 	    */
-        }
+	}
     }
 
     /** Encode outgoing data. */
     public void putAndEncode(String key, Object o) {
 	byte[] value = encodeObject(o.getClass(), o, null);
-        if (null != value) {
-            put(asBytes(key), value);
-        }
+	if (null != value) {
+	    put(asBytes(key), value);
+	}
     }
 
     /** Removes the mapping for a key from this map if it is present. */
     @Override public byte[] remove(Object k) {
-        byte[] key = (byte[]) k;
-        for (int i = 0; i < pairs.size(); i++) {
-            Pair p = pairs.get(i);
-            if (Arrays.equals(p.key, key)) {
-                pairs.remove(i);
-                return p.value;
-            }
-        }
-        return null;
+	byte[] key = (byte[]) k;
+	for (int i = 0; i < pairs.size(); i++) {
+	    Pair p = pairs.get(i);
+	    if (Arrays.equals(p.key, key)) {
+		pairs.remove(i);
+		return p.value;
+	    }
+	}
+	return null;
     }
 
     /** Returns the number of key-value mappings in this map. */
     @Override public int size() {
-        return pairs.size();
+	return pairs.size();
     }
 
     /** Returns a {@link Collection} view of the values contained in this map.*/
     @Override public Collection<byte[]> values() {
-        ArrayList<byte[]> v = new ArrayList<byte[]>();
-        for (Pair p: pairs) {
-            v.add(p.value);
-        }
-        return v;
+	ArrayList<byte[]> v = new ArrayList<byte[]>();
+	for (Pair p: pairs) {
+	    v.add(p.value);
+	}
+	return v;
     }
 
     private class Pair implements Map.Entry<byte[], byte[]> {
-        Pair(byte[] k, byte[] v) {
-            this.key = k;
-            this.value = v;
-        }
-        byte[] key;
-        byte[] value;
+	Pair(byte[] k, byte[] v) {
+	    this.key = k;
+	    this.value = v;
+	}
+	byte[] key;
+	byte[] value;
 
-        public boolean equals(Object o) {
-            if (o instanceof Pair) {
-                Pair other = (Pair) o;
-                return (Arrays.equals(other.key, this.key) &&
-                        Arrays.equals(other.value, this.value));
-            }
-            return false;
-        }
+	public boolean equals(Object o) {
+	    if (o instanceof Pair) {
+		Pair other = (Pair) o;
+		return (Arrays.equals(other.key, this.key) &&
+			Arrays.equals(other.value, this.value));
+	    }
+	    return false;
+	}
 
-        public byte[] getKey() { return key; }
-        public byte[] getValue() { return value; }
+	public byte[] getKey() { return key; }
+	public byte[] getValue() { return value; }
 
-        public byte[] setValue(byte[] value)
+	public byte[] setValue(byte[] value)
 	    throws UnsupportedOperationException {
-            throw new UnsupportedOperationException();
-        }
+	    throw new UnsupportedOperationException();
+	}
     }
 
     /** Convenience API because there is no byte literal syntax in java. */
     private static byte[] asBytes(String in) {
-        return asBytes(in, "ISO-8859-1");
+	return asBytes(in, "ISO-8859-1");
     }
 
     private static byte[] asBytes(String in, String encoding) {
-        try {
-            return in.getBytes(encoding);
-        } catch (UnsupportedEncodingException uee) {
-            throw new Error("JVMs are required to support encoding: "+encoding);
-        }
+	try {
+	    return in.getBytes(encoding);
+	} catch (UnsupportedEncodingException uee) {
+	    throw new Error("JVMs are required to support encoding: "+encoding);
+	}
     }
 
     private static String asString(byte[] in, String knownEncoding) {
-        try {
-            return new String(in, knownEncoding);
-        } catch (UnsupportedEncodingException uee) {
-            throw new Error("JVMs are required to support this encoding: " +
+	try {
+	    return new String(in, knownEncoding);
+	} catch (UnsupportedEncodingException uee) {
+	    throw new Error("JVMs are required to support this encoding: " +
 			    knownEncoding);
-        }
+	}
     }
 
     private List<Class> getListTypes(Field fld) {
@@ -355,12 +355,12 @@ public class AMPBox implements Map<byte[], byte[]> {
 
     /** Decode incoming data. */
     private Object decodeObject(byte[] toDecode, Class t, List<Class> lvals) {
-        if (null != toDecode) {
-            if (t == int.class || t == Integer.class) {
+	if (null != toDecode) {
+	    if (t == int.class || t == Integer.class) {
 		return Integer.decode(asString(toDecode));
-            } else if (t == String.class) {
-                return asString(toDecode, "UTF-8");
-            } else if (t == double.class || t == Double.class) {
+	    } else if (t == String.class) {
+		return asString(toDecode, "UTF-8");
+	    } else if (t == double.class || t == Double.class) {
 		String s = asString(toDecode);
 		if (s.equals("Inf"))
 		    return Double.POSITIVE_INFINITY;
@@ -376,7 +376,7 @@ public class AMPBox implements Map<byte[], byte[]> {
 		    return Boolean.TRUE;
 		else
 		    return Boolean.FALSE;
-            } else if (t == BigDecimal.class) {
+	    } else if (t == BigDecimal.class) {
 		String s = asString(toDecode);
 		if (s.equals("Infinity") || s.equals("-Infinity") ||
 		    s.equals("NaN") || s.equals("-NaN") ||
@@ -408,9 +408,9 @@ public class AMPBox implements Map<byte[], byte[]> {
 		return cal;
 	    } else if (t.getSuperclass() == AmpItem.class) {
 		List<Object> result = new ArrayList<Object>();
-		Map<String,Class> params = new HashMap<String,Class>();
+		Map<String,Field> params = new HashMap<String,Field>();
 		Field[] fields = t.getFields();
-		for (Field f: fields) params.put(f.getName(), f.getType());
+		for (Field f: fields) params.put(f.getName(), f);
 
 		while (toDecode.length > 1) {
 		    int tdlen=(Int16StringReceiver.toInt(toDecode[0])*256) +
@@ -424,10 +424,8 @@ public class AMPBox implements Map<byte[], byte[]> {
 			    int newlen = oldbuf.length - tdlen - 2;
 			    toDecode = new byte[newlen];
 			    System.arraycopy(oldbuf,tdlen+2,toDecode,0,newlen);
-			    String key = (String) decodeObject(hunk,
-							       String.class,
-							       lvals);
-
+			    String key =(String) decodeObject(hunk,String.class,
+							      lvals);
 			    tdlen=(Int16StringReceiver.toInt(toDecode[0])*256) +
 				Int16StringReceiver.toInt(toDecode[1]);
 			    hunk = new byte[tdlen];
@@ -436,8 +434,10 @@ public class AMPBox implements Map<byte[], byte[]> {
 			    newlen = oldbuf.length - tdlen - 2;
 			    toDecode = new byte[newlen];
 			    System.arraycopy(oldbuf,tdlen+2,toDecode,0,newlen);
-			    Object value = decodeObject(hunk,params.get(key),
-							lvals);
+
+			    Field f = params.get(key);
+			    Object value = decodeObject(hunk, f.getType(),
+							getListTypes(f));
 			    values.put(key, value);
 			}
 
@@ -493,20 +493,20 @@ public class AMPBox implements Map<byte[], byte[]> {
 		       t.getSuperclass() == ByteBuffer.class) {
 		return ByteBuffer.wrap(toDecode);
 	    } else if (t == byte[].class) {
-                return toDecode;
-            }
-        }
+		return toDecode;
+	    }
+	}
 	return null;
     }
 
     /** Encode outgoing data. */
     private byte[] encodeObject(Class t, Object o, List<Class> lvals){
 	byte[] value = null;
-        if (t == int.class || t == Integer.class) {
-            value = asBytes(((Integer) o).toString());
-        } else if (t == String.class) {
-            value = asBytes(((String) o), "UTF-8");
-        } else if (t == double.class || t == Double.class) {
+	if (t == int.class || t == Integer.class) {
+	    value = asBytes(((Integer) o).toString());
+	} else if (t == String.class) {
+	    value = asBytes(((String) o), "UTF-8");
+	} else if (t == double.class || t == Double.class) {
 	    Double d = (Double) o;
 	    if (d.equals(Double.POSITIVE_INFINITY))
 		value = asBytes("Inf");
@@ -516,13 +516,13 @@ public class AMPBox implements Map<byte[], byte[]> {
 		value = asBytes("nan");
 	    else
 		value = asBytes(d.toString());
-        } else if (t == boolean.class || t == Boolean.class) {
+	} else if (t == boolean.class || t == Boolean.class) {
 	    if (((Boolean) o).booleanValue()) {
 		value = asBytes("True");
 	    } else {
 		value = asBytes("False");
 	    }
-        } else if (t == BigDecimal.class) {
+	} else if (t == BigDecimal.class) {
 	    value = asBytes(((BigDecimal) o).toString());
 	} else if (t == Calendar.class || t.getSuperclass() == Calendar.class) {
 	    String dir = "+";
@@ -559,7 +559,8 @@ public class AMPBox implements Map<byte[], byte[]> {
 		    }
 
 		    try {
-			bp = encodeObject(f.getType(), f.get(li), null);
+			bp = encodeObject(f.getType(), f.get(li),
+					  getListTypes(f));
 			if (bp != null) {
 			    stream.write(bp.length / 0x100); // DIV
 			    stream.write(bp.length % 0x100); // MOD
@@ -602,8 +603,8 @@ public class AMPBox implements Map<byte[], byte[]> {
 	    value = new byte[bb.capacity()];
 	    bb.get(value, 0, value.length);
 	} else if (t == byte[].class) {
-            value = (byte[]) o;
-        }
+	    value = (byte[]) o;
+	}
 	return value;
     }
 

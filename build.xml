@@ -4,6 +4,7 @@
   <!-- Set some defaults -->
   <property name="doc.dir" value="${user.home}/javadoc" />
   <property name="tmp.dir" value="${basedir}/classes" />
+  <!-- <property name="tmp.dir" value="/tmp/java" /> -->
   <path id="project.class.path">
     <pathelement path="${java.class.path}" />
     <pathelement location="${tmp.dir}"/>

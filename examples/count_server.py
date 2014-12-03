@@ -21,7 +21,7 @@ class Count(amp.Command):
                 ('okl1', amp.ListOf(amp.Integer())),
                 ('okl2', amp.ListOf(amp.ListOf(amp.String()))),
                 ('okla', amp.AmpList([('a', amp.Integer()),
-                                      ('b', amp.Unicode())]))]
+                                      ('b', amp.ListOf(amp.Unicode()))]))]
 
 class Counter(amp.AMP):
     @Count.responder
@@ -43,7 +43,7 @@ class Counter(amp.AMP):
                  'okt': datetime.now(amp.utc),
                  'okl1': [4, 5, 6],
                  'okl2': [['str01','str02'], ['str03','str04','str05']],
-                 'okla': [{'a': 7, 'b': u'hello'}, {'a': 9, 'b': u'goodbye'}]
+                 'okla': [{'a': 7, 'b': [u'hello']},{'a': 9, 'b': [u'goodbye']}]
              }
 
     def connectionLost(self, reason):
