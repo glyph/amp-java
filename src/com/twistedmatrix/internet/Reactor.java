@@ -31,12 +31,12 @@ import javax.net.ssl.SSLSession;
  * it easier to one day support multiple reactors.
 */
 public class Reactor {
-    private static int	                BUFFER_SIZE  = 8 * 1024;
+    private static int	                BUFFER_SIZE  = 32 * 1024;
 
     private	TCPConnection           _connection;
     private	Selector                _selector;
-    private	boolean		_running;
-    private	TreeMap<Long,Runnable> _pendingCalls;
+    private	boolean		        _running;
+    private	TreeMap<Long,Runnable>  _pendingCalls;
 
     public Reactor () throws IOException {
 	_selector = Selector.open();
@@ -216,7 +216,7 @@ public class Reactor {
 		break;
 
 	    case BUFFER_OVERFLOW:
-		throw new IllegalStateException("failed to wrap");
+		throw new IllegalStateException("Buffer overflow in wrap!");
 
 	    case CLOSED:
 		//this.protocol.connectionLost(new Throwable("Disconnected"));
@@ -256,7 +256,7 @@ public class Reactor {
 		return false;
 
 	    case BUFFER_OVERFLOW:
-		throw new IllegalStateException("failed to unwrap");
+		throw new IllegalStateException("Buffer overflow in unwrap!");
 
 	    case BUFFER_UNDERFLOW:
 		return false;
@@ -334,7 +334,7 @@ public class Reactor {
     private class TCPPort extends TCPConnection implements IListeningPort {
 	protected ServerFactory       serverFactory;
 	protected ServerSocketChannel schannel;
-	private   ServerSocket	ssocket;
+	private   ServerSocket	      ssocket;
 	private   InetSocketAddress   addr;
 
 	TCPPort(int port, ServerFactory sf) throws Throwable {
