@@ -31,7 +31,7 @@ import javax.net.ssl.SSLSession;
  * it easier to one day support multiple reactors.
 */
 public class Reactor {
-    private static int	                BUFFER_SIZE  = 32 * 1024;
+    private static int	                BUFFER_SIZE  = 8 * 1024;
 
     private	TCPConnection           _connection;
     private	Selector                _selector;
@@ -89,10 +89,10 @@ public class Reactor {
 	    this.outbufs = new ArrayList<byte[]>();
 	    this.disconnecting = false;
 
-	    this.wrapSrc = ByteBuffer.allocateDirect(BUFFER_SIZE);
-	    this.wrapDst = ByteBuffer.allocateDirect(BUFFER_SIZE * 8);
-	    this.unwrapSrc = ByteBuffer.allocateDirect(BUFFER_SIZE * 8);
-	    this.unwrapDst = ByteBuffer.allocateDirect(BUFFER_SIZE);
+	    this.wrapSrc = ByteBuffer.allocateDirect(BUFFER_SIZE * 4);
+	    this.wrapDst = ByteBuffer.allocateDirect(BUFFER_SIZE * 4);
+	    this.unwrapSrc = ByteBuffer.allocateDirect(BUFFER_SIZE * 4);
+	    this.unwrapDst = ByteBuffer.allocateDirect(BUFFER_SIZE * 4);
 	    this.unwrapSrc.limit(0);
 	}
 
