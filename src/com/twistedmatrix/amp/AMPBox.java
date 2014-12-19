@@ -566,9 +566,6 @@ public class AMPBox implements Map<byte[], byte[]> {
 	    try {
 		for (Object li: (List) o) {
 		    for (Field f: fields) {
-
-			System.out.println("  ** HOWDY4: " + f.getName());
-
 			byte[] bp = encodeObject(String.class,f.getName(),null);
 			if (bp != null) {
 			    stream.write(bp.length / 0x100); // DIV
