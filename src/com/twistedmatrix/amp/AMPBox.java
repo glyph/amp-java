@@ -566,6 +566,9 @@ public class AMPBox implements Map<byte[], byte[]> {
 	    try {
 		for (Object li: (List) o) {
 		    for (Field f: fields) {
+
+			System.out.println("  ** HOWDY4: " + f.getName());
+
 			byte[] bp = encodeObject(String.class,f.getName(),null);
 			if (bp != null) {
 			    stream.write(bp.length / 0x100); // DIV
@@ -581,13 +584,11 @@ public class AMPBox implements Map<byte[], byte[]> {
 			    stream.write(bp, 0, bp.length);
 			}
 		    }
+		    stream.write(0);
+		    stream.write(0);
 		}
 	    } catch (Exception e) { e.printStackTrace(); }
-
-	    if (((List) o).size() > 0) {
-		stream.write(0);
-		stream.write(0);
-	    }
+	    
 	    value = stream.toByteArray();
 	} else if (t == List.class || t == ArrayList.class) {
 	    if (lvals == null || lvals.size() == 0) {
