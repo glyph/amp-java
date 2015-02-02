@@ -186,7 +186,7 @@ public class Reactor {
 	}
 
 	/* Actually encrypt outgoing data */
-	protected boolean wrap() {
+	protected synchronized boolean wrap() {
 	    SSLEngineResult wrapResult;
 
 	    try {
@@ -227,7 +227,7 @@ public class Reactor {
 	}
 
 	/* Actually decrypt incoming data */
-	protected boolean unwrap() {
+	protected synchronized boolean unwrap() {
 	    SSLEngineResult unwrapResult;
 
 	    try {
