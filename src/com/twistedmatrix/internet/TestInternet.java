@@ -9,7 +9,8 @@ public class TestInternet extends TestCase {
     public static class DeferredTest extends TestCase {
         int callcount = 0;
         public void testImmediateSuccessDeferred() {
-            Deferred d = Deferred.succeed();
+	    Deferred d = new Deferred();
+	    d.callback(null);
             d.addCallback(new Deferred.Callback() {
                     public Object callback(Object o) {
                         callcount++;

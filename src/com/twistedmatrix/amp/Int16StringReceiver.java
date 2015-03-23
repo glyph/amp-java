@@ -2,6 +2,7 @@ package com.twistedmatrix.amp;
 
 import com.twistedmatrix.internet.Protocol;
 
+/** This class buffers incoming data and does some initial processing. */
 public abstract class Int16StringReceiver extends Protocol {
 
     byte[] recvd;
@@ -17,8 +18,10 @@ public abstract class Int16StringReceiver extends Protocol {
         recvd = new byte[0];
     }
 
+    /** Deliver the data. */
     public abstract void stringReceived(byte[] hunk);
 
+    /** Handle incoming data. */
     public void dataReceived(byte[] data) {
         byte[] old = recvd;
         recvd = new byte[old.length + data.length];
@@ -31,9 +34,9 @@ public abstract class Int16StringReceiver extends Protocol {
         }
     }
 
-    static int toInt(byte b) {
-        // why doesn't java have unsigned bytes again?  at least python can
-        // _emulate_ this easily.
+    /** Convert a byte to an unsigned integer. */
+    public static int toInt(byte b) {
+        // why doesn't java have unsigned bytes again?
         int i;
         if (b < 0) {
             i = 256 + (int) b;
@@ -46,7 +49,7 @@ public abstract class Int16StringReceiver extends Protocol {
     /**
      * Attempt to drain some data from our buffer into somewhere else.
      */
-    boolean tryToDeliverData() {
+    private boolean tryToDeliverData() {
         if (recvd.length < 2) {
             return false;
         }

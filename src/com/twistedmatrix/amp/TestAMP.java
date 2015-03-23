@@ -1,4 +1,3 @@
-
 package com.twistedmatrix.amp;
 
 import java.util.List;
@@ -15,6 +14,7 @@ import junit.framework.TestSuite;
 
 import java.io.UnsupportedEncodingException;
 
+import com.twistedmatrix.amp.LocalCommand;
 import com.twistedmatrix.internet.ITransport;
 import com.twistedmatrix.internet.Deferred;
 
@@ -182,9 +182,6 @@ public class TestAMP extends TestCase {
 
         public void testCommandDispatch() throws Throwable {
             AMP a = new AMP() {
-                    @AMP.Command(
-                        name="ninjas",
-                        arguments="")
                     public void thingy() {
                         rancommandcount ++;
                     }
@@ -192,6 +189,7 @@ public class TestAMP extends TestCase {
             AMPBox ab = new AMPBox();
             ab.put("_command", "ninjas");
             ab.put("_ask", "ninjas");
+	    a.localCommand("ninjas",new LocalCommand("thingy",new String[] {}));
             a.ampBoxReceived(ab);
             assertEquals(1, rancommandcount);
         }
@@ -204,10 +202,11 @@ public class TestAMP extends TestCase {
             public void write(byte[] data) {
                 alb.add(data);
             }
-            public void loseConnection() {
-            }
-        }   
-        
+            public void connectionLost(Throwable reason) { }
+            public void loseConnection(Throwable reason) { }
+        }
+
+
         /**
          * Verify that AMP commands which return a Deferred are answered
          * only when the Deferred fires.
@@ -216,15 +215,16 @@ public class TestAMP extends TestCase {
 
             class DeferredReturner extends AMP {
                 public Deferred d;
-                @AMP.Command(name="ninjas", arguments="")
                 public Deferred thingy() {
                     d = new Deferred();
                     return d;
                 }
             }
 
-            DeferredReturner dr = new DeferredReturner();
             FakeTransport ft = new FakeTransport();
+            DeferredReturner dr = new DeferredReturner();
+	    dr.localCommand("ninjas",
+			    new LocalCommand("thingy",new String[] {}));
             dr.makeConnection(ft);
 
             AMPBox ab = new AMPBox();
@@ -239,21 +239,19 @@ public class TestAMP extends TestCase {
             this.assertEquals(1, lab.size());
             this.assertEquals("> pirates", new String(lab.get(0).get("_answer")));
         }
-
         /**
          * Verify that AMP commands that return a synchronous value
          * do not get Deferred.
          */
         public void testSynchronousValue() throws Throwable {
-            
+
             class SynchronousValue {
                 // Make some default values
                 public String strValue = "samurai";
                 public int intValue = 0;
             }
-            
+
             class SynchronousReturner extends AMP {
-                @AMP.Command(name="returnSynch", arguments="")
                 public SynchronousValue returnSynch() {
                     SynchronousValue thisSV = new SynchronousValue();
                     // Change those values arbitrarily
@@ -262,19 +260,21 @@ public class TestAMP extends TestCase {
                     return thisSV;
                 }
             }
-            
+
             FakeTransport ft = new FakeTransport();
-            
+
             SynchronousReturner sr = new SynchronousReturner();
+	    sr.localCommand("returnSynch", 
+			    new LocalCommand("returnSynch",new String[] {}));
             sr.makeConnection(ft);
-            
+
             this.assertEquals(0, ft.alb.size());
-            
+
             AMPBox ab = new AMPBox();
             ab.put("_command", "returnSynch");
             ab.put("_ask", "> pirates");
             sr.ampBoxReceived(ab);
-            
+
             this.assertEquals(1, ft.alb.size());
             List<AMPBox> lab = AMPParser.parseData(ft.alb.get(0));
             this.assertEquals(1, lab.size());
@@ -282,14 +282,20 @@ public class TestAMP extends TestCase {
             this.assertEquals("ninjas", new String(lab.get(0).get("strValue")));
             this.assertEquals("1", new String(lab.get(0).get("intValue")));
         }
-        
+
         ArrayList<Integer> ali;
 
         public class WhatTheHell extends AMP {
-            public @AMP.Command(name="addstuff",
-                         arguments="a b c d")
-                void
-            thingy (int java, int doesnt, int know, int argnames) {
+	    public class Command extends LocalCommand {
+		public int java;
+		public int doesnt;
+		public int know;
+		public int argnames;
+		public Command() { super("whatthe", new String[] {"java","doesnt","know","argnames"} ); }
+	    }
+	    public WhatTheHell() { localCommand("addstuff", new Command()); }
+
+	    public void whatthe(int java, int doesnt, int know, int argnames) {
                 rancommandcount++;
                 ali.add(java);
                 ali.add(doesnt);
@@ -305,10 +311,10 @@ public class TestAMP extends TestCase {
             AMPBox ab = new AMPBox();
             ab.put("_command", "addstuff");
             ab.put("_ask", "0x847");
-            ab.putAndEncode("a", new Integer(1234));
-            ab.putAndEncode("b", new Integer(5678));
-            ab.putAndEncode("c", new Integer(9101112));
-            ab.putAndEncode("d", new Integer(13141516));
+            ab.putAndEncode("java", new Integer(1234));
+            ab.putAndEncode("doesnt", new Integer(5678));
+            ab.putAndEncode("know", new Integer(9101112));
+            ab.putAndEncode("argnames", new Integer(13141516));
             a.ampBoxReceived(ab);
             assertEquals(1, rancommandcount);
             ArrayList<Integer> alicheck = new ArrayList<Integer>();

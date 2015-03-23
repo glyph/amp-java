@@ -1,12 +1,16 @@
-
 package com.twistedmatrix.internet;
 
+/** Defines a connection. */
 public interface IProtocol {
-    public interface IFactory {
-        IProtocol buildProtocol(Object addr);
-    }
+    /** Called when the connection is shut down. */
+    public void connectionLost(Throwable reason);
 
-    void makeConnection(ITransport transport);
-    void dataReceived(byte[] data);
-    void connectionLost(Throwable reason);
+    /** Called when a connection is made. */
+    public void connectionMade();
+
+    /** Called whenever data is received. */
+    public void dataReceived(byte[] data);
+
+    /** Make a connection to a transport and a server. */
+    public void makeConnection(ITransport transport);
 }
